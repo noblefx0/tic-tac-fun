@@ -1,223 +1,100 @@
-// ── Variables ───────────────────────────────────────────────────────
+// ── FRESH REBUILD - ONLY TURN SWITCHING ─────────────────────────────
+
 const cells = document.querySelectorAll('.cell');
 const statusEl = document.getElementById('status');
 const joinBtn = document.getElementById('joinBtn');
 const roomInput = document.getElementById('roomCode');
-const resetBtn = document.getElementById('reset');
 
-let gameId = null;           // e.g. "games/room-xyz123"
-let playerSymbol = null;     // "X" or "O"
+let gameId = null;
+let playerSymbol = null;   // "X" or "O"
 let myTurn = false;
 let gameActive = false;
 let boardState = Array(9).fill(null);
 
-// ── Join / Create room ──────────────────────────────────────────────
+// Join / Create
 joinBtn.addEventListener('click', () => {
   const code = roomInput.value.trim();
-  if (!code) {
-    alert("Please enter a room code");
-    return;
-  }
+  if (!code) return alert("Enter a room code!");
 
   gameId = "games/" + code;
   const gameRef = db.ref(gameId);
 
   gameRef.once("value", (snap) => {
-    const data = snap.val() || {};
+    const data = snap.val();
 
-    if (!data.board) {  // game doesn't exist yet
-      // Create as X
+    if (!data) {
+      // === CREATE GAME ===
       playerSymbol = "X";
-      console.log("[CREATE] I am", playerSymbol);
+      console.log("YOU ARE X (Creator)");
 
       gameRef.set({
         board: Array(9).fill(null),
         currentTurn: "X",
-        status: "waiting",
-        players: { X: "Player 1" },   // can later be {id: "...", name: "..."}
-        winner: null
+        status: "waiting"
       }).then(() => {
-        statusEl.textContent = `Game created! Share this code: ${code} (You are X)`;
-        listenToGame();
+        statusEl.textContent = `Game created! Share code: ${code} (You are X)`;
+        startListening();
       });
     } 
-    else if (data.status === "waiting" && !data.players?.O) {
-      // Join as O
+    else if (data.status === "waiting") {
+      // === JOIN GAME ===
       playerSymbol = "O";
-      console.log("[JOIN] I am", playerSymbol);
+      console.log("YOU ARE O (Joiner)");
 
-      gameRef.update({
-        status: "playing",
-        players: { ...data.players, O: "Player 2" }
-      }).then(() => {
-        statusEl.textContent = `Joined game! You are O — waiting for X...`;
-        listenToGame();
+      gameRef.update({ status: "playing" }).then(() => {
+        statusEl.textContent = "Joined! You are O";
+        startListening();
       });
-    } 
-    else {
-      alert("Game is full, already started, or finished. Choose another code.");
-      return;
+    } else {
+      alert("Game already full or finished. Use a new code.");
     }
-  }).catch(err => {
-    console.error("Firebase error:", err);
-    alert("Error connecting — check console");
   });
 });
 
-// ── Listen for realtime updates ─────────────────────────────────────
-function listenToGame() {
-  if (!gameId) return;
-
-  const gameRef = db.ref(gameId);
-
-  gameRef.on("value", (snap) => {
-    const data = snap.val();
-    if (!data) {
-      statusEl.textContent = "Game no longer exists";
-      return;
-    }
-
-    boardState = data.board || Array(9).fill(null);
-    renderBoard();
-
-    // ── Win / Draw check first ────────────────────────────────
-    if (data.winner) {
-      gameActive = false;
-      statusEl.textContent = `${data.winner} wins!`;
-      highlightWinningLine(boardState, data.winner);
-      return;
-    }
-
-    if (boardState.every(v => v !== null)) {
-      gameActive = false;
-      statusEl.textContent = "It's a draw!";
-      return;
-    }
-
-    // ── Turn & role logic ─────────────────────────────────────
-    const isPlaying = data.status === "playing";
-    const isWaiting = data.status === "waiting";
-
-    if (isWaiting) {
-      // Only creator should be here
-      gameActive = false;
-      statusEl.textContent = "Waiting for opponent... You are X";
-      return;
-    }
-
-    if (isPlaying) {
-      gameActive = true;
-
-      // Show who we are (helps debugging)
-      const roleText = playerSymbol ? ` (${playerSymbol})` : " (joining...)";
-
-      myTurn = (data.currentTurn === playerSymbol);
-
-      statusEl.textContent = myTurn 
-        ? `Your turn${roleText}` 
-        : `Waiting for ${data.currentTurn}${roleText}`;
-
-      // Debug print — open console in BOTH tabs!
-      console.log("Game state:", {
-        mySymbol: playerSymbol,
-        currentTurn: data.currentTurn,
-        myTurn: myTurn,
-        board: boardState,
-        status: data.status
-      });
-    }
-  });
-}
-
-// ── Listen for realtime updates ─────────────────────────────────────
-function listenToGame() {
-  const gameRef = db.ref(gameId);
-
-  gameRef.on("value", (snap) => {
+// Start listening to Firebase
+function startListening() {
+  db.ref(gameId).on("value", (snap) => {
     const data = snap.val();
     if (!data) return;
 
     boardState = data.board || Array(9).fill(null);
     renderBoard();
 
-    const isPlaying = data.status === "playing" || data.status === "waiting";
-
-    if (data.winner) {
-      gameActive = false;
-      statusEl.textContent = `${data.winner} wins!`;
-      highlightWinningLine(data.board, data.winner);
-      return;
-    }
-
-    if (boardState.every(cell => cell !== null)) {
-      gameActive = false;
-      statusEl.textContent = "It's a draw!";
-      return;
-    }
-
-    if (isPlaying) {
+    // Only show turns when game is actually playing
+    if (data.status === "playing") {
       gameActive = true;
       myTurn = (data.currentTurn === playerSymbol);
+
       statusEl.textContent = myTurn 
-        ? "Your turn!" 
+        ? `YOUR TURN (${playerSymbol})` 
         : `Waiting for ${data.currentTurn}...`;
+
+      console.log(`DEBUG → I am ${playerSymbol} | Turn: ${data.currentTurn} | My turn: ${myTurn}`);
+    } else {
+      statusEl.textContent = "Waiting for second player...";
     }
   });
 }
 
-// ── Render board ────────────────────────────────────────────────────
+// Render board
 function renderBoard() {
   cells.forEach((cell, i) => {
-    cell.textContent = boardState[i] || '';
-    cell.classList.remove('winner');
+    cell.textContent = boardState[i] || "";
   });
 }
 
-// ── Player makes a move ─────────────────────────────────────────────
+// Click to play
 cells.forEach(cell => {
   cell.addEventListener('click', () => {
     const index = parseInt(cell.dataset.index);
 
-    if (!gameActive || !myTurn || boardState[index] || !gameId) {
-      return;
-    }
+    if (!gameActive || !myTurn || boardState[index] || !gameId) return;
 
     boardState[index] = playerSymbol;
 
     db.ref(gameId).update({
       board: boardState,
       currentTurn: playerSymbol === "X" ? "O" : "X"
-    }).then(() => {
-      // The .on("value") listener will catch the update and check win/draw
     });
-  });
-});
-
-// ── Check win & highlight (called indirectly via listener) ───────────
-function highlightWinningLine(board, winner) {
-  const winPatterns = [
-    [0,1,2], [3,4,5], [6,7,8],
-    [0,3,6], [1,4,7], [2,5,8],
-    [0,4,8], [2,4,6]
-  ];
-
-  for (let pattern of winPatterns) {
-    const [a, b, c] = pattern;
-    if (board[a] === winner && board[b] === winner && board[c] === winner) {
-      [a,b,c].forEach(idx => cells[idx].classList.add('winner'));
-      break;
-    }
-  }
-}
-
-// ── Reset ───────────────────────────────────────────────────────────
-resetBtn.addEventListener('click', () => {
-  if (!gameId) return;
-
-  db.ref(gameId).update({
-    board: Array(9).fill(null),
-    currentTurn: "X",
-    status: "playing",
-    winner: null
   });
 });
