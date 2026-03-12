@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tic Tac Toe Online</title>
+    <link rel="stylesheet" href="tictac.css">
+
+    <!-- Firebase SDKs (use latest compat version for simple usage) -->
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+</head>
+
+<body>
+    <h1>Tic Tac Toe Online</h1>
+
+    <!-- Room joining / creation -->
+    <div class="menu">
+        <input type="text" id="roomCode" placeholder="Enter room code (or make one up)">
+        <button id="joinBtn">Join / Create Game</button>
+    </div>
+
+    <!-- Status message -->
+    <h2 id="status">Enter a room code to start</h2>
+
+    <div class="board" id="board">
+        <div class="cell" data-index="0"></div>
+        <div class="cell" data-index="1"></div>
+        <div class="cell" data-index="2"></div>
+        <div class="cell" data-index="3"></div>
+        <div class="cell" data-index="4"></div>
+        <div class="cell" data-index="5"></div>
+        <div class="cell" data-index="6"></div>
+        <div class="cell" data-index="7"></div>
+        <div class="cell" data-index="8"></div>
+    </div>
+
+    <button id="reset">Restart Game</button>
+
+    <script>
+        // Your Firebase config — replace with yours from Firebase console
+        const firebaseConfig = {
+            apiKey: "AIzaSyDl8rHqIOl4deFRbF4kH4vuIA37UdoGvQo",
+            authDomain: "code-share-48d5e.firebaseapp.com",
+            databaseURL: "https://code-share-48d5e-default-rtdb.firebaseio.com",
+            projectId: "code-share-48d5e",
+            storageBucket: "code-share-48d5e.firebasestorage.app",
+            messagingSenderId: "429700373293",
+            appId: "1:429700373293:web:5d7fd2f67fbf37fa0451a4"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // Load the game logic
+    </script>
+
+    <script src="tictac.js"></script>
+</body>
+
+</html>
