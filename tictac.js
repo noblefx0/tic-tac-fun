@@ -23,42 +23,111 @@ joinBtn.addEventListener('click', () => {
   const gameRef = db.ref(gameId);
 
   gameRef.once("value", (snap) => {
-    const data = snap.val();
+    const data = snap.val() || {};
 
-    if (!data) {
-      // Create new game as X
+    if (!data.board) {  // game doesn't exist yet
+      // Create as X
       playerSymbol = "X";
+      console.log("[CREATE] I am", playerSymbol);
+
       gameRef.set({
         board: Array(9).fill(null),
         currentTurn: "X",
         status: "waiting",
+        players: { X: "Player 1" },   // can later be {id: "...", name: "..."}
         winner: null
       }).then(() => {
-        statusEl.textContent = `Game created! Share code: ${code} (You are X)`;
+        statusEl.textContent = `Game created! Share this code: ${code} (You are X)`;
+        listenToGame();
       });
     } 
     else if (data.status === "waiting" && !data.players?.O) {
       // Join as O
       playerSymbol = "O";
+      console.log("[JOIN] I am", playerSymbol);
+
       gameRef.update({
         status: "playing",
-        players: { ...(data.players || {}), O: "Player 2" }
+        players: { ...data.players, O: "Player 2" }
       }).then(() => {
-        statusEl.textContent = "Joined! You are O — waiting for X to move";
+        statusEl.textContent = `Joined game! You are O — waiting for X...`;
+        listenToGame();
       });
     } 
     else {
-      alert("Game is full, in progress, or finished. Try another code.");
+      alert("Game is full, already started, or finished. Choose another code.");
+      return;
+    }
+  }).catch(err => {
+    console.error("Firebase error:", err);
+    alert("Error connecting — check console");
+  });
+});
+
+// ── Listen for realtime updates ─────────────────────────────────────
+function listenToGame() {
+  if (!gameId) return;
+
+  const gameRef = db.ref(gameId);
+
+  gameRef.on("value", (snap) => {
+    const data = snap.val();
+    if (!data) {
+      statusEl.textContent = "Game no longer exists";
       return;
     }
 
-    // Start listening once we're in
-    listenToGame();
-  }).catch(err => {
-    console.error("Firebase error:", err);
-    alert("Something went wrong — check console");
+    boardState = data.board || Array(9).fill(null);
+    renderBoard();
+
+    // ── Win / Draw check first ────────────────────────────────
+    if (data.winner) {
+      gameActive = false;
+      statusEl.textContent = `${data.winner} wins!`;
+      highlightWinningLine(boardState, data.winner);
+      return;
+    }
+
+    if (boardState.every(v => v !== null)) {
+      gameActive = false;
+      statusEl.textContent = "It's a draw!";
+      return;
+    }
+
+    // ── Turn & role logic ─────────────────────────────────────
+    const isPlaying = data.status === "playing";
+    const isWaiting = data.status === "waiting";
+
+    if (isWaiting) {
+      // Only creator should be here
+      gameActive = false;
+      statusEl.textContent = "Waiting for opponent... You are X";
+      return;
+    }
+
+    if (isPlaying) {
+      gameActive = true;
+
+      // Show who we are (helps debugging)
+      const roleText = playerSymbol ? ` (${playerSymbol})` : " (joining...)";
+
+      myTurn = (data.currentTurn === playerSymbol);
+
+      statusEl.textContent = myTurn 
+        ? `Your turn${roleText}` 
+        : `Waiting for ${data.currentTurn}${roleText}`;
+
+      // Debug print — open console in BOTH tabs!
+      console.log("Game state:", {
+        mySymbol: playerSymbol,
+        currentTurn: data.currentTurn,
+        myTurn: myTurn,
+        board: boardState,
+        status: data.status
+      });
+    }
   });
-});
+}
 
 // ── Listen for realtime updates ─────────────────────────────────────
 function listenToGame() {
