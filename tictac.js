@@ -34,14 +34,13 @@ joinBtn.addEventListener('click', () => {
         board: Array(9).fill(null),
         currentTurn: "X",
         status: "waiting",
-        players: { X: "Player 1" },   // can later be {id: "...", name: "..."}
-        winner: null
+        players: { X: "Player 1" }  // Add this
       }).then(() => {
         statusEl.textContent = `Game created! Share this code: ${code} (You are X)`;
         listenToGame();
       });
     } 
-    else if (data.status === "waiting" && !data.players?.O) {
+    else if (data.status === "waiting" && !data.players.O) {
       // Join as O
       playerSymbol = "O";
       console.log("[JOIN] I am", playerSymbol);
@@ -80,42 +79,34 @@ function listenToGame() {
     boardState = data.board || Array(9).fill(null);
     renderBoard();
 
-    // ── Win / Draw check first ────────────────────────────────
-    if (data.winner) {
+    // ── Check for win or draw on the current board ─────────────────
+    const winner = getWinner(boardState);
+    if (winner) {
       gameActive = false;
-      statusEl.textContent = `${data.winner} wins!`;
-      highlightWinningLine(boardState, data.winner);
+      statusEl.textContent = `${winner} wins! (You are ${playerSymbol})`;
+      highlightWinningLine(boardState, winner);
       return;
     }
 
     if (boardState.every(v => v !== null)) {
       gameActive = false;
-      statusEl.textContent = "It's a draw!";
+      statusEl.textContent = `It's a draw! (You are ${playerSymbol})`;
       return;
     }
 
-    // ── Turn & role logic ─────────────────────────────────────
-    const isPlaying = data.status === "playing";
-    const isWaiting = data.status === "waiting";
-
-    if (isWaiting) {
-      // Only creator should be here
+    // ── Handle status ──────────────────────────────────────────────
+    if (data.status === "waiting") {
       gameActive = false;
-      statusEl.textContent = "Waiting for opponent... You are X";
+      statusEl.textContent = `Waiting for opponent... (You are ${playerSymbol})`;
       return;
     }
 
-    if (isPlaying) {
+    if (data.status === "playing") {
       gameActive = true;
-
-      // Show who we are (helps debugging)
-      const roleText = playerSymbol ? ` (${playerSymbol})` : " (joining...)";
-
       myTurn = (data.currentTurn === playerSymbol);
-
       statusEl.textContent = myTurn 
-        ? `Your turn${roleText}` 
-        : `Waiting for ${data.currentTurn}${roleText}`;
+        ? `Your turn (${playerSymbol})` 
+        : `Waiting for ${data.currentTurn}... (You are ${playerSymbol})`;
 
       // Debug print — open console in BOTH tabs!
       console.log("Game state:", {
@@ -129,40 +120,21 @@ function listenToGame() {
   });
 }
 
-// ── Listen for realtime updates ─────────────────────────────────────
-function listenToGame() {
-  const gameRef = db.ref(gameId);
+// ── Get winner from board ───────────────────────────────────────────
+function getWinner(board) {
+  const winPatterns = [
+    [0,1,2], [3,4,5], [6,7,8],
+    [0,3,6], [1,4,7], [2,5,8],
+    [0,4,8], [2,4,6]
+  ];
 
-  gameRef.on("value", (snap) => {
-    const data = snap.val();
-    if (!data) return;
-
-    boardState = data.board || Array(9).fill(null);
-    renderBoard();
-
-    const isPlaying = data.status === "playing" || data.status === "waiting";
-
-    if (data.winner) {
-      gameActive = false;
-      statusEl.textContent = `${data.winner} wins!`;
-      highlightWinningLine(data.board, data.winner);
-      return;
+  for (let pattern of winPatterns) {
+    const [a, b, c] = pattern;
+    if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+      return board[a];
     }
-
-    if (boardState.every(cell => cell !== null)) {
-      gameActive = false;
-      statusEl.textContent = "It's a draw!";
-      return;
-    }
-
-    if (isPlaying) {
-      gameActive = true;
-      myTurn = (data.currentTurn === playerSymbol);
-      statusEl.textContent = myTurn 
-        ? "Your turn!" 
-        : `Waiting for ${data.currentTurn}...`;
-    }
-  });
+  }
+  return null;
 }
 
 // ── Render board ────────────────────────────────────────────────────
@@ -188,12 +160,14 @@ cells.forEach(cell => {
       board: boardState,
       currentTurn: playerSymbol === "X" ? "O" : "X"
     }).then(() => {
-      // The .on("value") listener will catch the update and check win/draw
+      console.log("Move made by", playerSymbol);
+    }).catch(err => {
+      console.error("Move error:", err);
     });
   });
 });
 
-// ── Check win & highlight (called indirectly via listener) ───────────
+// ── Highlight winning line ──────────────────────────────────────────
 function highlightWinningLine(board, winner) {
   const winPatterns = [
     [0,1,2], [3,4,5], [6,7,8],
@@ -217,7 +191,6 @@ resetBtn.addEventListener('click', () => {
   db.ref(gameId).update({
     board: Array(9).fill(null),
     currentTurn: "X",
-    status: "playing",
-    winner: null
+    status: "playing"  // Assumes both players are still in; otherwise reset to waiting if needed
   });
 });
