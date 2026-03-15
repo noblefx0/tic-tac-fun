@@ -36,6 +36,7 @@ joinBtn.addEventListener('click', () => {
       }).then(() => {
         statusEl.textContent = `Game created! Share code: ${code} (You are X)`;
         startListening();
+        gameActive = true;
       });
     }
     else if (data.status === "waiting") {
@@ -46,6 +47,7 @@ joinBtn.addEventListener('click', () => {
       gameRef.update({ status: "playing" }).then(() => {
         statusEl.textContent = "Joined! You are O – game starting…";
         startListening();
+        gameActive = true;
       });
     } else {
       alert("Game already full or finished. Use a new code.");
