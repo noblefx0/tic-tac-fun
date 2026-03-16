@@ -185,33 +185,50 @@ cells.forEach(cell => {
 });
 
 // ── Restart game ────────────────────────────────────────────────────
-resetBtn.addEventListener("click", () => {
-    if (!gameId) {
-        statusEl.textContent = "No active game";
-        return;
-    }
+resetBtn.addEventListener('click', () => {
+  if (!gameId) {
+    statusEl.textContent = "No active game";
+    return;
+  }
 
-    if (!confirm("Restart game? Board clears, X starts again.")) {
-        return;
-    }
+  if (!confirm("Restart game? Board clears – starter switches.")) {
+    return;
+  }
 
-    db.ref(gameId)
-        .update({
-            board: Array(9).fill(null),
-            currentTurn: "X",
-            winner: null
-            // Do NOT touch status — keep it "playing"
-        })
-        .then(() => {
-            // Reset local game state so clicks work again
-            gameActive = true;
-            myTurn = playerSymbol === "X"; // X starts
-            cells.forEach(cell => cell.classList.remove("winner"));
-            statusEl.textContent =
-                playerSymbol === "X"
-                    ? "YOUR TURN (X) – new game started"
-                    : "Waiting for X… new game started";
-            console.log("Game restarted – ready to play again");
-        })
-        .catch(err => console.error("Restart failed:", err));
+  const gameRef = db.ref(gameId);
+
+  // 1. Get current state first (to know who should start next)
+  gameRef.once("value", (snap) => {
+    const data = snap.val() || {};
+    const nextTurnBeforeReset = data.currentTurn || "X";  // fallback to X
+
+    // 2. The player who would play NEXT becomes the one who starts after restart
+    //    (because currentTurn = the one who did NOT play last)
+    const newStartingPlayer = nextTurnBeforeReset;
+
+    // 3. Perform the reset
+    gameRef.update({
+      board: Array(9).fill(null),
+      currentTurn: newStartingPlayer,
+      winner: null
+      // status stays "playing"
+    })
+    .then(() => {
+      // Local UI feedback
+      gameActive = true;
+      myTurn = (playerSymbol === newStartingPlayer);
+
+      cells.forEach(cell => cell.classList.remove('winner'));
+
+      statusEl.textContent = myTurn
+        ? `YOUR TURN (${playerSymbol}) – new game!`
+        : `Waiting for ${newStartingPlayer} – new game started`;
+
+      console.log(`Restarted → ${newStartingPlayer} starts (because they didn't play last)`);
+    })
+    .catch(err => {
+      console.error("Restart failed:", err);
+      statusEl.textContent = "Restart failed – try again";
+    });
+  });
 });
