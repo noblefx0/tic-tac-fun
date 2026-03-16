@@ -1,182 +1,217 @@
 // ── Tic-Tac-Toe multiplayer – win detection only ────────────────────
 
-const cells = document.querySelectorAll('.cell');
-const statusEl = document.getElementById('status');
-const joinBtn = document.getElementById('joinBtn');
-const roomInput = document.getElementById('roomCode');
-const resetBtn = document.getElementById('reset');
+const cells = document.querySelectorAll(".cell");
+const statusEl = document.getElementById("status");
+const joinBtn = document.getElementById("joinBtn");
+const roomInput = document.getElementById("roomCode");
+const resetBtn = document.getElementById("reset");
 
 let gameId = null;
-let playerSymbol = null;   // "X" or "O"
+let playerSymbol = null; // "X" or "O"
 let myTurn = false;
-let gameActive = true;     // stays true even on full board
+let gameActive = true; // stays true even on full board
 let boardState = Array(9).fill(null);
 
 // ── Join / Create ───────────────────────────────────────────────────
-joinBtn.addEventListener('click', () => {
-  const code = roomInput.value.trim();
-  if (!code) return alert("Enter a room code!");
+joinBtn.addEventListener("click", () => {
+    const code = roomInput.value.trim();
+    if (!code) return alert("Enter a room code!");
 
-  gameId = "games/" + code;
-  const gameRef = db.ref(gameId);
+    gameId = "games/" + code;
+    const gameRef = db.ref(gameId);
 
-  gameRef.once("value", (snap) => {
-    const data = snap.val();
+    gameRef.once("value", snap => {
+        const data = snap.val();
 
-    if (!data) {
-      // Create new game as X
-      playerSymbol = "X";
-      console.log("YOU ARE X (Creator)");
+        if (!data) {
+            // Create new game as X
+            playerSymbol = "X";
+            console.log("YOU ARE X (Creator)");
 
-      gameRef.set({
-        board: Array(9).fill(null),
-        currentTurn: "X",
-        status: "waiting",
-        winner: null
-      }).then(() => {
-        statusEl.textContent = `Game created! Share code: ${code} (You are X)`;
-        startListening();
-        gameActive = true;
-      });
-    }
-    else if (data.status === "waiting") {
-      // Join as O
-      playerSymbol = "O";
-      console.log("YOU ARE O (Joiner)");
+            gameRef
+                .set({
+                    board: Array(9).fill(null),
+                    currentTurn: "X",
+                    status: "waiting",
+                    winner: null
+                })
+                .then(() => {
+                    statusEl.textContent = `Game created! Share code: ${code} (You are X)`;
+                    startListening();
+                    gameActive = true;
+                });
+        } else if (data.status === "waiting") {
+            // Join as O
+            playerSymbol = "O";
+            console.log("YOU ARE O (Joiner)");
 
-      gameRef.update({ status: "playing" }).then(() => {
-        statusEl.textContent = "Joined! You are O – game starting…";
-        startListening();
-        gameActive = true;
-      });
-    } else {
-      alert("Game already full or finished. Use a new code.");
-    }
-  });
+            gameRef.update({ status: "playing" }).then(() => {
+                statusEl.textContent = "Joined! You are O – game starting…";
+                startListening();
+                gameActive = true;
+            });
+        } else {
+            alert("Game already full or finished. Use a new code.");
+        }
+    });
 });
 
 // ── Listen for changes ──────────────────────────────────────────────
 function startListening() {
-  db.ref(gameId).on("value", (snap) => {
-    const data = snap.val();
-    if (!data) return;
+    db.ref(gameId).on("value", snap => {
+        const data = snap.val();
+        if (!data) return;
 
-    boardState = data.board || Array(9).fill(null);
-    renderBoard();
+        boardState = data.board || Array(9).fill(null);
+        renderBoard();
 
-    // ── ONLY check for winner ───────────────────────────────────────
-    const winner = getWinner(boardState);
+        // ── ONLY check for winner ───────────────────────────────────────
+        const winner = getWinner(boardState);
 
-    if (winner) {
-      gameActive = false;
-      statusEl.textContent = `${winner} wins!`;
-      highlightWinningLine(winner);
-      return;
-    }
+        if (winner && !data.winner) {
+            // only announce first time
+            db.ref(gameId).update({ winner: winner }); // save it
+        }
 
-    // No draw check → game continues even if board is full
+        if (data.winner) {
+            statusEl.textContent = `${data.winner} wins! Click Restart to play again.`;
+            highlightWinningLine(data.winner);
+            gameActive = false; // block moves until restart
+        } else {
+            // normal turn logic only when no winner yet
+            if (data.status === "playing") {
+                gameActive = true;
+                myTurn = data.currentTurn === playerSymbol;
 
-    // ── Normal gameplay state ───────────────────────────────────────
-    if (data.status === "playing") {
-      myTurn = (data.currentTurn === playerSymbol);
+                statusEl.textContent = myTurn
+                    ? `YOUR TURN (${playerSymbol})`
+                    : `Waiting for ${data.currentTurn}…`;
+            } else if (data.status === "waiting") {
+                statusEl.textContent = "Waiting for second player…";
+            }
+        }
 
-      statusEl.textContent = myTurn
-        ? `YOUR TURN (${playerSymbol})`
-        : `Waiting for ${data.currentTurn}…`;
+        // No draw check → game continues even if board is full
 
-      console.log(`I am ${playerSymbol} | turn: ${data.currentTurn} | myTurn: ${myTurn}`);
-    }
-    else if (data.status === "waiting") {
-      statusEl.textContent = "Waiting for second player…";
-    }
-  });
+        // ── Normal gameplay state ───────────────────────────────────────
+        if (data.status === "playing") {
+            myTurn = data.currentTurn === playerSymbol;
+
+            statusEl.textContent = myTurn
+                ? `YOUR TURN (${playerSymbol})`
+                : `Waiting for ${data.currentTurn}…`;
+
+            console.log(
+                `I am ${playerSymbol} | turn: ${data.currentTurn} | myTurn: ${myTurn}`
+            );
+        } else if (data.status === "waiting") {
+            statusEl.textContent = "Waiting for second player…";
+        }
+    });
 }
 
 // ── Win checking ────────────────────────────────────────────────────
 function getWinner(board) {
-  const lines = [
-    [0,1,2], [3,4,5], [6,7,8],    // rows
-    [0,3,6], [1,4,7], [2,5,8],    // columns
-    [0,4,8], [2,4,6]              // diagonals
-  ];
+    const lines = [
+        [0, 1, 2],
+        [3, 4, 5],
+        [6, 7, 8], // rows
+        [0, 3, 6],
+        [1, 4, 7],
+        [2, 5, 8], // columns
+        [0, 4, 8],
+        [2, 4, 6] // diagonals
+    ];
 
-  for (let [a, b, c] of lines) {
-    if (board[a] && board[a] === board[b] && board[a] === board[c]) {
-      return board[a];
+    for (let [a, b, c] of lines) {
+        if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+            return board[a];
+        }
     }
-  }
-  return null;
+    return null;
 }
 
 // ── Highlight winning cells ─────────────────────────────────────────
 function highlightWinningLine(winner) {
-  const lines = [
-    [0,1,2], [3,4,5], [6,7,8],
-    [0,3,6], [1,4,7], [2,5,8],
-    [0,4,8], [2,4,6]
-  ];
+    const lines = [
+        [0, 1, 2],
+        [3, 4, 5],
+        [6, 7, 8],
+        [0, 3, 6],
+        [1, 4, 7],
+        [2, 5, 8],
+        [0, 4, 8],
+        [2, 4, 6]
+    ];
 
-  for (let [a, b, c] of lines) {
-    if (
-      boardState[a] === winner &&
-      boardState[b] === winner &&
-      boardState[c] === winner
-    ) {
-      cells[a].classList.add('winner');
-      cells[b].classList.add('winner');
-      cells[c].classList.add('winner');
-      return; // only one winning line highlighted
+    for (let [a, b, c] of lines) {
+        if (
+            boardState[a] === winner &&
+            boardState[b] === winner &&
+            boardState[c] === winner
+        ) {
+            cells[a].classList.add("winner");
+            cells[b].classList.add("winner");
+            cells[c].classList.add("winner");
+            return; // only one winning line highlighted
+        }
     }
-  }
 }
 
 // ── Render the board ────────────────────────────────────────────────
 function renderBoard() {
-  cells.forEach((cell, i) => {
-    cell.textContent = boardState[i] || '';
-    cell.classList.remove('winner');   // clear old highlight
-  });
+    cells.forEach((cell, i) => {
+        cell.textContent = boardState[i] || "";
+        cell.classList.remove("winner"); // clear old highlight
+    });
 }
 
 // ── Make a move ─────────────────────────────────────────────────────
 cells.forEach(cell => {
-  cell.addEventListener('click', () => {
-    const index = Number(cell.dataset.index);
+    cell.addEventListener("click", () => {
+        const index = Number(cell.dataset.index);
 
-    if (!gameActive || !myTurn || boardState[index] || !gameId) {
-      return;
-    }
+        if (!gameActive || !myTurn || boardState[index] || !gameId) {
+            return;
+        }
 
-    boardState[index] = playerSymbol;
+        boardState[index] = playerSymbol;
 
-    db.ref(gameId).update({
-      board: boardState,
-      currentTurn: playerSymbol === "X" ? "O" : "X"
+        db.ref(gameId).update({
+            board: boardState,
+            currentTurn: playerSymbol === "X" ? "O" : "X"
+        });
     });
-  });
 });
 
 // ── Restart game ────────────────────────────────────────────────────
-resetBtn.addEventListener('click', () => {
-  if (!gameId) {
-    statusEl.textContent = "No active game";
-    return;
-  }
+resetBtn.addEventListener("click", () => {
+    if (!gameId) {
+        statusEl.textContent = "No active game";
+        return;
+    }
 
-  if (!confirm("Restart the game? Board will be cleared.")) {
-    return;
-  }
+    if (!confirm("Restart game? Board clears, X starts again.")) {
+        return;
+    }
 
-  db.ref(gameId).update({
-    board: Array(9).fill(null),
-    currentTurn: "X",
-    status: "waiting",
-    winner: null
-  })
-  .then(() => {
-    console.log("Game restarted");
-  })
-  .catch(err => {
-    console.error("Reset failed:", err);
-  });
+    db.ref(gameId)
+        .update({
+            board: Array(9).fill(null),
+            currentTurn: "X",
+            winner: null
+            // Do NOT touch status — keep it "playing"
+        })
+        .then(() => {
+            // Reset local game state so clicks work again
+            gameActive = true;
+            myTurn = playerSymbol === "X"; // X starts
+            cells.forEach(cell => cell.classList.remove("winner"));
+            statusEl.textContent =
+                playerSymbol === "X"
+                    ? "YOUR TURN (X) – new game started"
+                    : "Waiting for X… new game started";
+            console.log("Game restarted – ready to play again");
+        })
+        .catch(err => console.error("Restart failed:", err));
 });
