@@ -1,4 +1,4 @@
-  body {
+body {
     font-family: Arial, sans-serif;
     display: flex;
     flex-direction: column;
@@ -7,19 +7,19 @@
     height: 100vh;
     background: #0f172a;
     color: #fff;
-  }
+}
 
-  h1 {
+h1 {
     margin-bottom: 10px;
-  }
+}
 
-  .board {
+.board {
     display: grid;
     grid-template-columns: repeat(3, 100px);
     grid-gap: 5px;
-  }
+}
 
-  .cell {
+.cell {
     width: 100px;
     height: 100px;
     background: #1e293b;
@@ -30,20 +30,20 @@
     cursor: pointer;
     border-radius: 10px;
     transition: 0.2s;
-  }
+}
 
-  .cell.winner {
+.cell.winner {
     background-color: #22c55e;
     /* green win highlight */
     color: white;
     font-weight: bold;
-  }
+}
 
-  .cell:hover {
+.cell:hover {
     background: #334155;
-  }
+}
 
-  #reset {
+#reset {
     margin-top: 15px;
     background: #2563eb;
     color: white;
@@ -52,14 +52,14 @@
     border-radius: 8px;
     cursor: pointer;
     font-size: 1em;
-  }
+}
 
-  .menu {
+.menu {
     margin: 20px 0;
     display: flex;
     gap: 10px;
     justify-content: center;
-  }
+}
 
 #roomCode {
     padding: 7px;
@@ -69,9 +69,9 @@
     background: #1e293b;
     color: white;
     width: 250px;
-  }
+}
 
-  #joinBtn {
+#joinBtn {
     background: #10b981;
     color: white;
     border: none;
@@ -79,87 +79,119 @@
     border-radius: 5px;
     cursor: pointer;
     font-size: 1em;
-  }
+}
 
-  #joinBtn:hover {
+#joinBtn:hover {
     background: #059669;
-  }
+}
 
-  #status {
+#status {
     min-height: 1.5em;
     margin: 10px 0;
     color: #93c5fd;
-  }
+}
 
-  .cell.winner {
+.cell.winner {
     background: #ca8a04 !important;
     color: black;
-  }
+}
 
 .reactions {
-  display: flex;
-  justify-content: center;
-  gap: 7px;
-  margin: 17px 0;
-  flex-wrap: wrap;
+    display: flex;
+    justify-content: center;
+    gap: 7px;
+    margin: 5px 0;
+    flex-wrap: wrap;
 }
 
 .reaction-btn {
-  font-size: 2rem;
-  width: 50px;
-  height: 50px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  transition: all 0.10s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+    font-size: 2rem;
+    width: 50px;
+    height: 50px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: all 0.1s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .reaction-btn:hover {
-  transform: scale(1.1);
+    transform: scale(1.1);
 }
 
 .reaction-btn:active {
-  transform: scale(0.80);
+    transform: scale(0.8);
 }
 
 /* Floating big emoji animation */
 .floating-reaction {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%) scale(0);
-  font-size: 8rem;
-  pointer-events: none;
-  opacity: 0;
-  z-index: 1000;
-  transition: all 0.6s ease;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    font-size: 8rem;
+    pointer-events: none;
+    opacity: 0;
+    z-index: 1000;
+    transition: all 0.6s ease;
 }
 
 .floating-reaction.show {
-  opacity: 1;
-  transform: translate(-50%, -50%) scale(1.2);
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.2);
 }
 
 .floating-reaction.fade-out {
-  opacity: 0;
-  transform: translate(-50%, -50%) scale(1.5);
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.5);
 }
 
 /* Reaction received – make the specific emoji button huge */
 .reaction-btn.received {
-  animation: emojiPulse 3.5s ease-in-out;
-  transform-origin: center center;
-  z-index: 10;
-  pointer-events: none; /* prevent clicking during animation */
+    animation: emojiPulse 3.5s ease-in-out;
+    transform-origin: center center;
+    z-index: 10;
+    pointer-events: none; /* prevent clicking during animation */
 }
 
 @keyframes emojiPulse {
-  0%   { transform: scale(1); }
-  25%{ transform: scale(3.2); }
-  50%  { transform: scale(2.8); }
-  75%  { transform: scale(3.0); }
-  100% { transform: scale(1); }
+    0% {
+        transform: scale(1);
+    }
+    25% {
+        transform: scale(3.2);
+    }
+    50% {
+        transform: scale(2.8);
+    }
+    75% {
+        transform: scale(3);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+.score {
+    font-size: 1.2rem;
+    font-weight: bold;
+    text-align: center;
+    margin: 2px 0 4px 0;
+    color: #93c5fd;
+    letter-spacing: 2px;
+    background: rgba(15, 23, 42, 0.6);
+    padding: 2px 6px;
+    border-radius: 12px;
+    width: fit-content;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.score.x-lead {
+    color: #22c55e;
+}
+.score.o-lead {
+    color: #ef4444;
 }
