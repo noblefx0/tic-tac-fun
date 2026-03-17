@@ -247,7 +247,7 @@ function animateReceivedEmoji(emoji) {
 
         setTimeout(() => {
             target.classList.remove('received');
-        }, 4000);
+        }, 1300);
     } else {
         console.warn("No reaction button found for:", emoji);
     }
