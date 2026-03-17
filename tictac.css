@@ -108,9 +108,6 @@
   font-size: 2.2rem;
   width: 50px;
   height: 50px;
-  background: #1e293b;
-  border: 2px solid #334155;
-  border-radius: 50%;
   cursor: pointer;
   transition: all 0.15s ease;
   display: flex;
@@ -120,8 +117,6 @@
 
 .reaction-btn:hover {
   transform: scale(1.2);
-  background: #334155;
-  border-color: #60a5fa;
 }
 
 .reaction-btn:active {
