@@ -66,18 +66,22 @@ function startListening() {
         renderBoard();
 
         // Reaction handling – only animate if sent by opponent
-if (data.reaction && data.reaction.sentAt && data.reaction.sender) {
-  const now = Date.now();
-  const age = now - data.reaction.sentAt;
+        if (data.reaction && data.reaction.sentAt && data.reaction.sender) {
+            const now = Date.now();
+            const age = now - data.reaction.sentAt;
 
-  if (age < 7000 && data.reaction.sender !== playerSymbol) {
-    // Only animate if NOT sent by me
-    animateReceivedEmoji(data.reaction.emoji);
-    console.log(`Opponent (${data.reaction.sender}) sent: ${data.reaction.emoji} → animating`);
-  } else if (data.reaction.sender === playerSymbol) {
-    console.log(`You sent ${data.reaction.emoji} → ignoring animation on your screen`);
-  }
-}
+            if (age < 7000 && data.reaction.sender !== playerSymbol) {
+                // Only animate if NOT sent by me
+                animateReceivedEmoji(data.reaction.emoji);
+                console.log(
+                    `Opponent (${data.reaction.sender}) sent: ${data.reaction.emoji} → animating`
+                );
+            } else if (data.reaction.sender === playerSymbol) {
+                console.log(
+                    `You sent ${data.reaction.emoji} → ignoring animation on your screen`
+                );
+            }
+        }
         // ── Win check ───────────────────────────────────────────────
         const winner = getWinner(boardState);
 
@@ -99,7 +103,9 @@ if (data.reaction && data.reaction.sentAt && data.reaction.sender) {
                     ? `YOUR TURN (${playerSymbol})`
                     : `Waiting for ${data.currentTurn}…`;
 
-                console.log(`I am ${playerSymbol} | turn: ${data.currentTurn} | myTurn: ${myTurn}`);
+                console.log(
+                    `I am ${playerSymbol} | turn: ${data.currentTurn} | myTurn: ${myTurn}`
+                );
             } else if (data.status === "waiting") {
                 statusEl.textContent = "Waiting for second player…";
             }
@@ -110,12 +116,17 @@ if (data.reaction && data.reaction.sentAt && data.reaction.sender) {
 // ── Win checking ────────────────────────────────────────────────────
 function getWinner(board) {
     const lines = [
-        [0,1,2], [3,4,5], [6,7,8],
-        [0,3,6], [1,4,7], [2,5,8],
-        [0,4,8], [2,4,6]
+        [0, 1, 2],
+        [3, 4, 5],
+        [6, 7, 8],
+        [0, 3, 6],
+        [1, 4, 7],
+        [2, 5, 8],
+        [0, 4, 8],
+        [2, 4, 6]
     ];
 
-    for (let [a,b,c] of lines) {
+    for (let [a, b, c] of lines) {
         if (board[a] && board[a] === board[b] && board[a] === board[c]) {
             return board[a];
         }
@@ -126,13 +137,22 @@ function getWinner(board) {
 // ── Highlight winning line ──────────────────────────────────────────
 function highlightWinningLine(winner) {
     const lines = [
-        [0,1,2], [3,4,5], [6,7,8],
-        [0,3,6], [1,4,7], [2,5,8],
-        [0,4,8], [2,4,6]
+        [0, 1, 2],
+        [3, 4, 5],
+        [6, 7, 8],
+        [0, 3, 6],
+        [1, 4, 7],
+        [2, 5, 8],
+        [0, 4, 8],
+        [2, 4, 6]
     ];
 
-    for (let [a,b,c] of lines) {
-        if (boardState[a] === winner && boardState[b] === winner && boardState[c] === winner) {
+    for (let [a, b, c] of lines) {
+        if (
+            boardState[a] === winner &&
+            boardState[b] === winner &&
+            boardState[c] === winner
+        ) {
             cells[a].classList.add("winner");
             cells[b].classList.add("winner");
             cells[c].classList.add("winner");
@@ -168,7 +188,7 @@ cells.forEach(cell => {
 });
 
 // ── Restart game ────────────────────────────────────────────────────
-resetBtn.addEventListener('click', () => {
+resetBtn.addEventListener("click", () => {
     if (!gameId) {
         statusEl.textContent = "No active game";
         return;
@@ -180,75 +200,115 @@ resetBtn.addEventListener('click', () => {
 
     const gameRef = db.ref(gameId);
 
-    gameRef.once("value", (snap) => {
+    gameRef.once("value", snap => {
         const data = snap.val() || {};
         const nextTurnBeforeReset = data.currentTurn || "X";
         const newStartingPlayer = nextTurnBeforeReset;
 
-        gameRef.update({
-            board: Array(9).fill(null),
-            currentTurn: newStartingPlayer,
-            winner: null
-        })
-        .then(() => {
-            gameActive = true;
-            myTurn = (playerSymbol === newStartingPlayer);
+        gameRef
+            .update({
+                board: Array(9).fill(null),
+                currentTurn: newStartingPlayer,
+                winner: null
+            })
+            .then(() => {
+                gameActive = true;
+                myTurn = playerSymbol === newStartingPlayer;
 
-            cells.forEach(cell => cell.classList.remove('winner'));
+                cells.forEach(cell => cell.classList.remove("winner"));
 
-            statusEl.textContent = myTurn
-                ? `YOUR TURN (${playerSymbol}) – new game!`
-                : `Waiting for ${newStartingPlayer} – new game started`;
+                statusEl.textContent = myTurn
+                    ? `YOUR TURN (${playerSymbol}) – new game!`
+                    : `Waiting for ${newStartingPlayer} – new game started`;
 
-            console.log(`Restarted → ${newStartingPlayer} starts`);
-        })
-        .catch(err => {
-            console.error("Restart failed:", err);
-            statusEl.textContent = "Restart failed – try again";
-        });
+                console.log(`Restarted → ${newStartingPlayer} starts`);
+            })
+            .catch(err => {
+                console.error("Restart failed:", err);
+                statusEl.textContent = "Restart failed – try again";
+            });
     });
 });
 
 // ── Emoji Reactions – enlarge received emoji on opponent's screen ──
 
-const reactionButtons = document.querySelectorAll('.reaction-btn');
+const reactionButtons = document.querySelectorAll(".reaction-btn");
 
 // Send reaction
 reactionButtons.forEach(button => {
-  button.addEventListener('click', () => {
-    if (!gameId || !playerSymbol) {
-      statusEl.textContent = "No game or no symbol yet";
-      return;
-    }
+    button.addEventListener("click", () => {
+        if (!gameId || !playerSymbol) {
+            statusEl.textContent = "No game or no symbol yet";
+            return;
+        }
 
-    const emoji = button.dataset.emoji;
+        const emoji = button.dataset.emoji;
 
-    db.ref(gameId).child('reaction').set({
-      emoji: emoji,
-      sender: playerSymbol,       // ← add this: "X" or "O"
-      sentAt: Date.now()
-    }).then(() => {
-      console.log(`You (${playerSymbol}) sent: ${emoji}`);
-    }).catch(err => {
-      console.error("Send failed:", err);
+        db.ref(gameId)
+            .child("reaction")
+            .set({
+                emoji: emoji,
+                sender: playerSymbol, // ← add this: "X" or "O"
+                sentAt: Date.now()
+            })
+            .then(() => {
+                console.log(`You (${playerSymbol}) sent: ${emoji}`);
+            })
+            .catch(err => {
+                console.error("Send failed:", err);
+            });
     });
-  });
 });
 
 // Animate received emoji
 function animateReceivedEmoji(emoji) {
-    reactionButtons.forEach(btn => btn.classList.remove('received'));
+    reactionButtons.forEach(btn => btn.classList.remove("received"));
 
-    const target = Array.from(reactionButtons).find(btn => btn.dataset.emoji === emoji);
+    const target = Array.from(reactionButtons).find(
+        btn => btn.dataset.emoji === emoji
+    );
 
     if (target) {
-        target.classList.add('received');
+        target.classList.add("received");
         console.log("Animating emoji on this screen:", emoji);
 
         setTimeout(() => {
-            target.classList.remove('received');
-        }, 1300);
+            target.classList.remove("received");
+        }, 4000);
     } else {
         console.warn("No reaction button found for:", emoji);
     }
-                 }
+}
+
+// ── SCORE SYSTEM ───────────────────────────────────────────────────
+
+let scoreX = 0;
+let scoreO = 0;
+const scoreDisplay = document.getElementById("score-display");
+
+// Update score display
+function updateScoreDisplay() {
+    scoreDisplay.textContent = `X: ${scoreX}  O: ${scoreO}`;
+
+    if (scoreX > scoreO) scoreDisplay.className = "score x-lead";
+    else if (scoreO > scoreX) scoreDisplay.className = "score o-lead";
+    else scoreDisplay.className = "score";
+}
+
+// Show initial 0-0 when second player joins
+// Add this line inside startListening() after renderBoard();
+if (data.status === "playing") {
+    updateScoreDisplay();
+}
+
+// When someone wins, add 1 point
+// Replace your current winner block with this:
+if (winner && !data.winner) {
+    db.ref(gameId).update({ winner: winner });
+
+    if (winner === "X") scoreX++;
+    else if (winner === "O") scoreO++;
+
+    updateScoreDisplay();
+                                      }
+            
