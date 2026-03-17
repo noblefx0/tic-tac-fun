@@ -20,7 +20,19 @@
         <input type="text" id="roomCode" placeholder="Enter room code (or make one up)">
         <button id="joinBtn">Join / Create Game</button>
     </div>
+ <div class="reactions">
+  <button class="reaction-btn" data-emoji="😂">😂</button>
+  <button class="reaction-btn" data-emoji="😭">😭</button>
+  <button class="reaction-btn" data-emoji="🤔">🤔</button>
+  <button class="reaction-btn" data-emoji="👏">👏</button>
+  <button class="reaction-btn" data-emoji="🤡">🤡</button>
+  <button class="reaction-btn" data-emoji="😈">😈</button>
+  <button class="reaction-btn" data-emoji="💀">💀</button>
+  <button class="reaction-btn" data-emoji="🖕">🖕</button>
+</div>
 
+    <!-- Floating reaction display (one per player screen) -->
+<div id="floating-reaction" class="floating-reaction"></div>
     <!-- Status message -->
     <h2 id="status">Enter a room code to start</h2>
 
@@ -37,20 +49,6 @@
     </div>
 
     <button id="reset">Restart Game</button>
-
-    <div class="reactions">
-  <button class="reaction-btn" data-emoji="😂">😂</button>
-  <button class="reaction-btn" data-emoji="😭">😭</button>
-  <button class="reaction-btn" data-emoji="🤔">🤔</button>
-  <button class="reaction-btn" data-emoji="👏">👏</button>
-  <button class="reaction-btn" data-emoji="🤡">🤡</button>
-  <button class="reaction-btn" data-emoji="😈">😈</button>
-  <button class="reaction-btn" data-emoji="💀">💀</button>
-  <button class="reaction-btn" data-emoji="🖕">🖕</button>
-</div>
-
-<!-- Floating reaction display (one per player screen) -->
-<div id="floating-reaction" class="floating-reaction"></div>
 
     <script>
         // Your Firebase config — replace with yours from Firebase console
