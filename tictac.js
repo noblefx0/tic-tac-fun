@@ -65,16 +65,19 @@ function startListening() {
         boardState = data.board || Array(9).fill(null);
         renderBoard();
 
-        // ── Reaction handling ───────────────────────────────────────
-        if (data.reaction && data.reaction.sentAt) {
-            const now = Date.now();
-            const age = now - data.reaction.sentAt;
-            if (age < 7000) {
-                animateReceivedEmoji(data.reaction.emoji);
-                console.log("Reaction received & animated:", data.reaction.emoji);
-            }
-        }
+        // Reaction handling – only animate if sent by opponent
+if (data.reaction && data.reaction.sentAt && data.reaction.sender) {
+  const now = Date.now();
+  const age = now - data.reaction.sentAt;
 
+  if (age < 7000 && data.reaction.sender !== playerSymbol) {
+    // Only animate if NOT sent by me
+    animateReceivedEmoji(data.reaction.emoji);
+    console.log(`Opponent (${data.reaction.sender}) sent: ${data.reaction.emoji} → animating`);
+  } else if (data.reaction.sender === playerSymbol) {
+    console.log(`You sent ${data.reaction.emoji} → ignoring animation on your screen`);
+  }
+}
         // ── Win check ───────────────────────────────────────────────
         const winner = getWinner(boardState);
 
@@ -212,23 +215,24 @@ const reactionButtons = document.querySelectorAll('.reaction-btn');
 
 // Send reaction
 reactionButtons.forEach(button => {
-    button.addEventListener('click', () => {
-        if (!gameId) {
-            statusEl.textContent = "No game active – can't react";
-            return;
-        }
+  button.addEventListener('click', () => {
+    if (!gameId || !playerSymbol) {
+      statusEl.textContent = "No game or no symbol yet";
+      return;
+    }
 
-        const emoji = button.dataset.emoji;
+    const emoji = button.dataset.emoji;
 
-        db.ref(gameId).child('reaction').set({
-            emoji: emoji,
-            sentAt: Date.now()
-        }).then(() => {
-            console.log("Reaction sent:", emoji);
-        }).catch(err => {
-            console.error("Failed to send reaction:", err);
-        });
+    db.ref(gameId).child('reaction').set({
+      emoji: emoji,
+      sender: playerSymbol,       // ← add this: "X" or "O"
+      sentAt: Date.now()
+    }).then(() => {
+      console.log(`You (${playerSymbol}) sent: ${emoji}`);
+    }).catch(err => {
+      console.error("Send failed:", err);
     });
+  });
 });
 
 // Animate received emoji
