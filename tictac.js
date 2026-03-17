@@ -280,35 +280,3 @@ function animateReceivedEmoji(emoji) {
     }
 }
 
-// ── SCORE SYSTEM ───────────────────────────────────────────────────
-
-let scoreX = 0;
-let scoreO = 0;
-const scoreDisplay = document.getElementById("score-display");
-
-// Update score display
-function updateScoreDisplay() {
-    scoreDisplay.textContent = `X: ${scoreX}  O: ${scoreO}`;
-
-    if (scoreX > scoreO) scoreDisplay.className = "score x-lead";
-    else if (scoreO > scoreX) scoreDisplay.className = "score o-lead";
-    else scoreDisplay.className = "score";
-}
-
-// Show initial 0-0 when second player joins
-// Add this line inside startListening() after renderBoard();
-if (data.status === "playing") {
-    updateScoreDisplay();
-}
-
-// When someone wins, add 1 point
-// Replace your current winner block with this:
-if (winner && !data.winner) {
-    db.ref(gameId).update({ winner: winner });
-
-    if (winner === "X") scoreX++;
-    else if (winner === "O") scoreO++;
-
-    updateScoreDisplay();
-                                      }
-            
