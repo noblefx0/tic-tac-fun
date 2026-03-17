@@ -233,53 +233,51 @@ resetBtn.addEventListener('click', () => {
   });
 });
 
-// ── Emoji Reactions ─────────────────────────────────────────────────
+// ── Emoji Reactions – enlarge the received emoji on opponent's screen ──
 
 const reactionButtons = document.querySelectorAll('.reaction-btn');
-const floatingReaction = document.getElementById('floating-reaction');
+const boardEl = document.getElementById('board'); // optional reference
 
-// Listen for clicks on reaction buttons
-reactionButtons.forEach(btn => {
-  btn.addEventListener('click', () => {
-    if (!gameId) return; // no game → ignore
+// Send reaction
+reactionButtons.forEach(button => {
+  button.addEventListener('click', () => {
+    if (!gameId) return;
 
-    const emoji = btn.dataset.emoji;
+    const emoji = button.dataset.emoji;
 
-    // Send to Firebase
     db.ref(gameId).child('reaction').set({
       emoji: emoji,
-      timestamp: Date.now()  // to detect new ones
-    })
-    .catch(err => console.error("Reaction send failed:", err));
+      sentAt: Date.now()
+    }).catch(err => console.error("Failed to send:", err));
   });
 });
 
-// Watch for reactions in the game listener
-// → Add this INSIDE your existing gameRef.on("value", (snap) => { ... }) block
-// Best place: right after boardState = data.board ... and renderBoard();
-
-if (data.reaction && data.reaction.timestamp) {
+// Receive & animate – add this INSIDE gameRef.on("value", ...) after renderBoard()
+if (data.reaction && data.reaction.sentAt) {
   const now = Date.now();
-  const age = now - data.reaction.timestamp;
+  const age = now - data.reaction.sentAt;
 
-  // Only show if reaction is recent (prevents showing old ones on join)
-  if (age < 6000) {  // less than 6 seconds old
-    showFloatingEmoji(data.reaction.emoji);
+  if (age < 6000) {  // only fresh reactions
+    animateReceivedEmoji(data.reaction.emoji);
   }
 }
 
-// Function to show the big floating emoji
-function showFloatingEmoji(emoji) {
-  floatingReaction.textContent = emoji;
-  floatingReaction.classList.remove('fade-out');
-  floatingReaction.classList.add('show');
+// Find button by emoji and trigger animation
+function animateReceivedEmoji(receivedEmoji) {
+  // Remove any old animation class first
+  reactionButtons.forEach(btn => btn.classList.remove('received'));
 
-  // Auto fade out after 5 seconds
-  setTimeout(() => {
-    floatingReaction.classList.add('fade-out');
+  // Find the button with matching emoji
+  const targetButton = Array.from(reactionButtons).find(
+    btn => btn.dataset.emoji === receivedEmoji
+  );
+
+  if (targetButton) {
+    targetButton.classList.add('received');
+
+    // Clean up after animation
     setTimeout(() => {
-      floatingReaction.classList.remove('show', 'fade-out');
-      floatingReaction.textContent = '';
-    }, 800); // match fade-out transition time
-  }, 4200); // visible for \~4.2s + animation buffer = \~5s total
+      targetButton.classList.remove('received');
+    }, 3800); // slightly longer than animation duration
+  }
 }
