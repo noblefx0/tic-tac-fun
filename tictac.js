@@ -1,4 +1,4 @@
-// ── Tic-Tac-Toe multiplayer – win detection only ────────────────────
+// ── Tic-Tac-Toe multiplayer – win detection only + fixed reactions ──
 
 const cells = document.querySelectorAll(".cell");
 const statusEl = document.getElementById("status");
@@ -9,7 +9,7 @@ const resetBtn = document.getElementById("reset");
 let gameId = null;
 let playerSymbol = null; // "X" or "O"
 let myTurn = false;
-let gameActive = true; // stays true even on full board
+let gameActive = true;
 let boardState = Array(9).fill(null);
 
 // ── Join / Create ───────────────────────────────────────────────────
@@ -24,7 +24,7 @@ joinBtn.addEventListener("click", () => {
         const data = snap.val();
 
         if (!data) {
-            // Create new game as X
+            // Create as X
             playerSymbol = "X";
             console.log("YOU ARE X (Creator)");
 
@@ -65,20 +65,29 @@ function startListening() {
         boardState = data.board || Array(9).fill(null);
         renderBoard();
 
-        // ── ONLY check for winner ───────────────────────────────────────
+        // ── Reaction handling ───────────────────────────────────────
+        if (data.reaction && data.reaction.sentAt) {
+            const now = Date.now();
+            const age = now - data.reaction.sentAt;
+            if (age < 7000) {
+                animateReceivedEmoji(data.reaction.emoji);
+                console.log("Reaction received & animated:", data.reaction.emoji);
+            }
+        }
+
+        // ── Win check ───────────────────────────────────────────────
         const winner = getWinner(boardState);
 
         if (winner && !data.winner) {
-            // only announce first time
-            db.ref(gameId).update({ winner: winner }); // save it
+            db.ref(gameId).update({ winner: winner });
         }
 
         if (data.winner) {
             statusEl.textContent = `${data.winner} wins! Click Restart to play again.`;
             highlightWinningLine(data.winner);
-            gameActive = false; // block moves until restart
+            gameActive = false;
         } else {
-            // normal turn logic only when no winner yet
+            // Normal turn logic
             if (data.status === "playing") {
                 gameActive = true;
                 myTurn = data.currentTurn === playerSymbol;
@@ -86,26 +95,11 @@ function startListening() {
                 statusEl.textContent = myTurn
                     ? `YOUR TURN (${playerSymbol})`
                     : `Waiting for ${data.currentTurn}…`;
+
+                console.log(`I am ${playerSymbol} | turn: ${data.currentTurn} | myTurn: ${myTurn}`);
             } else if (data.status === "waiting") {
                 statusEl.textContent = "Waiting for second player…";
             }
-        }
-
-        // No draw check → game continues even if board is full
-
-        // ── Normal gameplay state ───────────────────────────────────────
-        if (data.status === "playing") {
-            myTurn = data.currentTurn === playerSymbol;
-
-            statusEl.textContent = myTurn
-                ? `YOUR TURN (${playerSymbol})`
-                : `Waiting for ${data.currentTurn}…`;
-
-            console.log(
-                `I am ${playerSymbol} | turn: ${data.currentTurn} | myTurn: ${myTurn}`
-            );
-        } else if (data.status === "waiting") {
-            statusEl.textContent = "Waiting for second player…";
         }
     });
 }
@@ -113,17 +107,12 @@ function startListening() {
 // ── Win checking ────────────────────────────────────────────────────
 function getWinner(board) {
     const lines = [
-        [0, 1, 2],
-        [3, 4, 5],
-        [6, 7, 8], // rows
-        [0, 3, 6],
-        [1, 4, 7],
-        [2, 5, 8], // columns
-        [0, 4, 8],
-        [2, 4, 6] // diagonals
+        [0,1,2], [3,4,5], [6,7,8],
+        [0,3,6], [1,4,7], [2,5,8],
+        [0,4,8], [2,4,6]
     ];
 
-    for (let [a, b, c] of lines) {
+    for (let [a,b,c] of lines) {
         if (board[a] && board[a] === board[b] && board[a] === board[c]) {
             return board[a];
         }
@@ -131,38 +120,29 @@ function getWinner(board) {
     return null;
 }
 
-// ── Highlight winning cells ─────────────────────────────────────────
+// ── Highlight winning line ──────────────────────────────────────────
 function highlightWinningLine(winner) {
     const lines = [
-        [0, 1, 2],
-        [3, 4, 5],
-        [6, 7, 8],
-        [0, 3, 6],
-        [1, 4, 7],
-        [2, 5, 8],
-        [0, 4, 8],
-        [2, 4, 6]
+        [0,1,2], [3,4,5], [6,7,8],
+        [0,3,6], [1,4,7], [2,5,8],
+        [0,4,8], [2,4,6]
     ];
 
-    for (let [a, b, c] of lines) {
-        if (
-            boardState[a] === winner &&
-            boardState[b] === winner &&
-            boardState[c] === winner
-        ) {
+    for (let [a,b,c] of lines) {
+        if (boardState[a] === winner && boardState[b] === winner && boardState[c] === winner) {
             cells[a].classList.add("winner");
             cells[b].classList.add("winner");
             cells[c].classList.add("winner");
-            return; // only one winning line highlighted
+            return;
         }
     }
 }
 
-// ── Render the board ────────────────────────────────────────────────
+// ── Render board ────────────────────────────────────────────────────
 function renderBoard() {
     cells.forEach((cell, i) => {
         cell.textContent = boardState[i] || "";
-        cell.classList.remove("winner"); // clear old highlight
+        cell.classList.remove("winner");
     });
 }
 
@@ -186,98 +166,85 @@ cells.forEach(cell => {
 
 // ── Restart game ────────────────────────────────────────────────────
 resetBtn.addEventListener('click', () => {
-  if (!gameId) {
-    statusEl.textContent = "No active game";
-    return;
-  }
+    if (!gameId) {
+        statusEl.textContent = "No active game";
+        return;
+    }
 
-  if (!confirm("Restart game? Board clears – starter switches.")) {
-    return;
-  }
+    if (!confirm("Restart game? Board clears – starter switches.")) {
+        return;
+    }
 
-  const gameRef = db.ref(gameId);
+    const gameRef = db.ref(gameId);
 
-  // 1. Get current state first (to know who should start next)
-  gameRef.once("value", (snap) => {
-    const data = snap.val() || {};
-    const nextTurnBeforeReset = data.currentTurn || "X";  // fallback to X
+    gameRef.once("value", (snap) => {
+        const data = snap.val() || {};
+        const nextTurnBeforeReset = data.currentTurn || "X";
+        const newStartingPlayer = nextTurnBeforeReset;
 
-    // 2. The player who would play NEXT becomes the one who starts after restart
-    //    (because currentTurn = the one who did NOT play last)
-    const newStartingPlayer = nextTurnBeforeReset;
+        gameRef.update({
+            board: Array(9).fill(null),
+            currentTurn: newStartingPlayer,
+            winner: null
+        })
+        .then(() => {
+            gameActive = true;
+            myTurn = (playerSymbol === newStartingPlayer);
 
-    // 3. Perform the reset
-    gameRef.update({
-      board: Array(9).fill(null),
-      currentTurn: newStartingPlayer,
-      winner: null
-      // status stays "playing"
-    })
-    .then(() => {
-      // Local UI feedback
-      gameActive = true;
-      myTurn = (playerSymbol === newStartingPlayer);
+            cells.forEach(cell => cell.classList.remove('winner'));
 
-      cells.forEach(cell => cell.classList.remove('winner'));
+            statusEl.textContent = myTurn
+                ? `YOUR TURN (${playerSymbol}) – new game!`
+                : `Waiting for ${newStartingPlayer} – new game started`;
 
-      statusEl.textContent = myTurn
-        ? `YOUR TURN (${playerSymbol}) – new game!`
-        : `Waiting for ${newStartingPlayer} – new game started`;
-
-      console.log(`Restarted → ${newStartingPlayer} starts (because they didn't play last)`);
-    })
-    .catch(err => {
-      console.error("Restart failed:", err);
-      statusEl.textContent = "Restart failed – try again";
+            console.log(`Restarted → ${newStartingPlayer} starts`);
+        })
+        .catch(err => {
+            console.error("Restart failed:", err);
+            statusEl.textContent = "Restart failed – try again";
+        });
     });
-  });
 });
 
-// ── Emoji Reactions – enlarge the received emoji on opponent's screen ──
+// ── Emoji Reactions – enlarge received emoji on opponent's screen ──
 
 const reactionButtons = document.querySelectorAll('.reaction-btn');
-const boardEl = document.getElementById('board'); // optional reference
 
 // Send reaction
 reactionButtons.forEach(button => {
-  button.addEventListener('click', () => {
-    if (!gameId) return;
+    button.addEventListener('click', () => {
+        if (!gameId) {
+            statusEl.textContent = "No game active – can't react";
+            return;
+        }
 
-    const emoji = button.dataset.emoji;
+        const emoji = button.dataset.emoji;
 
-    db.ref(gameId).child('reaction').set({
-      emoji: emoji,
-      sentAt: Date.now()
-    }).catch(err => console.error("Failed to send:", err));
-  });
+        db.ref(gameId).child('reaction').set({
+            emoji: emoji,
+            sentAt: Date.now()
+        }).then(() => {
+            console.log("Reaction sent:", emoji);
+        }).catch(err => {
+            console.error("Failed to send reaction:", err);
+        });
+    });
 });
 
-// Receive & animate – add this INSIDE gameRef.on("value", ...) after renderBoard()
-if (data.reaction && data.reaction.sentAt) {
-  const now = Date.now();
-  const age = now - data.reaction.sentAt;
+// Animate received emoji
+function animateReceivedEmoji(emoji) {
+    reactionButtons.forEach(btn => btn.classList.remove('received'));
 
-  if (age < 6000) {  // only fresh reactions
-    animateReceivedEmoji(data.reaction.emoji);
-  }
-}
+    const target = Array.from(reactionButtons).find(btn => btn.dataset.emoji === emoji);
 
-// Find button by emoji and trigger animation
-function animateReceivedEmoji(receivedEmoji) {
-  // Remove any old animation class first
-  reactionButtons.forEach(btn => btn.classList.remove('received'));
+    if (target) {
+        target.classList.add('received');
+        console.log("Animating emoji on this screen:", emoji);
 
-  // Find the button with matching emoji
-  const targetButton = Array.from(reactionButtons).find(
-    btn => btn.dataset.emoji === receivedEmoji
-  );
-
-  if (targetButton) {
-    targetButton.classList.add('received');
-
-    // Clean up after animation
-    setTimeout(() => {
-      targetButton.classList.remove('received');
-    }, 3800); // slightly longer than animation duration
-  }
-}
+        setTimeout(() => {
+            target.classList.remove('received');
+        }, 4000);
+    } else {
+        console.warn("No reaction button found for:", emoji);
+    }
+                 }
