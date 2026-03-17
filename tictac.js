@@ -232,3 +232,54 @@ resetBtn.addEventListener('click', () => {
     });
   });
 });
+
+// ── Emoji Reactions ─────────────────────────────────────────────────
+
+const reactionButtons = document.querySelectorAll('.reaction-btn');
+const floatingReaction = document.getElementById('floating-reaction');
+
+// Listen for clicks on reaction buttons
+reactionButtons.forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (!gameId) return; // no game → ignore
+
+    const emoji = btn.dataset.emoji;
+
+    // Send to Firebase
+    db.ref(gameId).child('reaction').set({
+      emoji: emoji,
+      timestamp: Date.now()  // to detect new ones
+    })
+    .catch(err => console.error("Reaction send failed:", err));
+  });
+});
+
+// Watch for reactions in the game listener
+// → Add this INSIDE your existing gameRef.on("value", (snap) => { ... }) block
+// Best place: right after boardState = data.board ... and renderBoard();
+
+if (data.reaction && data.reaction.timestamp) {
+  const now = Date.now();
+  const age = now - data.reaction.timestamp;
+
+  // Only show if reaction is recent (prevents showing old ones on join)
+  if (age < 6000) {  // less than 6 seconds old
+    showFloatingEmoji(data.reaction.emoji);
+  }
+}
+
+// Function to show the big floating emoji
+function showFloatingEmoji(emoji) {
+  floatingReaction.textContent = emoji;
+  floatingReaction.classList.remove('fade-out');
+  floatingReaction.classList.add('show');
+
+  // Auto fade out after 5 seconds
+  setTimeout(() => {
+    floatingReaction.classList.add('fade-out');
+    setTimeout(() => {
+      floatingReaction.classList.remove('show', 'fade-out');
+      floatingReaction.textContent = '';
+    }, 800); // match fade-out transition time
+  }, 4200); // visible for \~4.2s + animation buffer = \~5s total
+}
