@@ -190,10 +190,10 @@ h1 {
 }
 
 .score.x-lead {
-    color: #22c55e;
+    color: blue;
 }
 .score.o-lead {
-    color: #ef4444;
+    color: gray;
 }
 
 /* Chat container */
@@ -208,8 +208,8 @@ h1 {
   background: rgba(30, 41, 59, 0.75);
   border-radius: 12px;
   padding: 12px;
-  min-height: 100px;
-  max-height: 220px;
+  min-height: 80px;
+  max-height: 80px;
   overflow-y: auto;
   margin-bottom: 10px;
   font-size: 1rem;
@@ -222,8 +222,8 @@ h1 {
   word-break: break-word;
 }
 
-.chat-messages .x-msg { color: #60a5fa; font-weight: 500; }
-.chat-messages .o-msg { color: #f87171; font-weight: 500; }
+.chat-messages .x-msg { color: blue; font-weight: 500; }
+.chat-messages .o-msg { color: gray; font-weight: 500; }
 
 /* Input row */
 .chat-input-area {
