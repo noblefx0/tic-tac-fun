@@ -1,4 +1,4 @@
-// ── Tic-Tac-Toe multiplayer – win detection + score + fixed reactions ──
+// ── Tic-Tac-Toe multiplayer – win detection + score + chat + reactions ──
 
 const cells = document.querySelectorAll(".cell");
 const statusEl = document.getElementById("status");
@@ -22,13 +22,51 @@ function updateScoreDisplay() {
   if (!scoreDisplay) return;
   scoreDisplay.textContent = `X: ${scoreX}  O: ${scoreO}`;
 
-  if (scoreX > scoreO) {
-    scoreDisplay.className = "score x-lead";
-  } else if (scoreO > scoreX) {
-    scoreDisplay.className = "score o-lead";
-  } else {
-    scoreDisplay.className = "score";
+  if (scoreX > scoreO) scoreDisplay.className = "score x-lead";
+  else if (scoreO > scoreX) scoreDisplay.className = "score o-lead";
+  else scoreDisplay.className = "score";
+}
+
+// ── Chat variables ──────────────────────────────────────────────────
+const chatContainer = document.getElementById("chat-container");
+const chatMessages = document.getElementById("chat-messages");
+const chatInput = document.getElementById("chat-input");
+const chatSend = document.getElementById("chat-send");
+const chatLog = []; // keeps last 15 messages
+
+function sendChatMessage() {
+  const message = chatInput.value.trim();
+  if (!message || !gameId || !playerSymbol) return;
+
+  db.ref(gameId).child("messages").push({
+    text: message,
+    sender: playerSymbol,
+    timestamp: Date.now()
+  });
+
+  chatInput.value = "";
+}
+
+chatSend.addEventListener("click", sendChatMessage);
+chatInput.addEventListener("keypress", e => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    sendChatMessage();
   }
+});
+
+function addChatMessage(sender, text) {
+  const msgEl = document.createElement("p");
+  msgEl.textContent = `${sender}: ${text}`;
+  msgEl.className = sender === "X" ? "x-msg" : "o-msg";
+
+  chatLog.push(msgEl);
+  if (chatLog.length > 15) chatLog.shift();
+
+  chatMessages.innerHTML = "";
+  chatLog.forEach(el => chatMessages.appendChild(el.cloneNode(true)));
+
+  chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
 // ── Join / Create ───────────────────────────────────────────────────
@@ -46,19 +84,18 @@ joinBtn.addEventListener("click", () => {
       playerSymbol = "X";
       console.log("YOU ARE X (Creator)");
 
-      gameRef
-        .set({
-          board: Array(9).fill(null),
-          currentTurn: "X",
-          status: "waiting",
-          winner: null,
-          scores: { X: 0, O: 0 } // initial scores
-        })
-        .then(() => {
-          statusEl.textContent = `Game created! Share code: ${code} (You are X)`;
-          startListening();
-          gameActive = true;
-        });
+      gameRef.set({
+        board: Array(9).fill(null),
+        currentTurn: "X",
+        status: "waiting",
+        winner: null,
+        scores: { X: 0, O: 0 },
+        messages: {}
+      }).then(() => {
+        statusEl.textContent = `Game created! Share code: ${code} (You are X)`;
+        startListening();
+        gameActive = true;
+      });
     } else if (data.status === "waiting") {
       playerSymbol = "O";
       console.log("YOU ARE O (Joiner)");
@@ -83,24 +120,36 @@ function startListening() {
     boardState = data.board || Array(9).fill(null);
     renderBoard();
 
-    // Load scores from Firebase (persists across refreshes)
+    // Load scores
     scoreX = data.scores?.X || 0;
     scoreO = data.scores?.O || 0;
     updateScoreDisplay();
 
-    // Show initial 0-0 when game becomes playing
+    // Show chat UI & hide join UI when playing
     if (data.status === "playing") {
+      // Hide room input + button (adjust selector if your HTML is different)
+      roomInput.parentElement.style.display = "none"; // or ".menu", "#input-area", etc.
+      joinBtn.style.display = "none";
+      if (chatContainer) chatContainer.style.display = "block";
       updateScoreDisplay();
     }
 
-    // ── Reaction handling – only animate if sent by opponent ────────
+    // Load last 15 messages
+    if (data.messages) {
+      const msgs = Object.values(data.messages);
+      msgs.sort((a,b) => a.timestamp - b.timestamp);
+      chatLog.length = 0;
+      msgs.slice(-15).forEach(m => {
+        addChatMessage(m.sender, m.text);
+      });
+    }
+
+    // ── Reaction handling ───────────────────────────────────────────
     if (data.reaction && data.reaction.sentAt && data.reaction.sender) {
       const now = Date.now();
       const age = now - data.reaction.sentAt;
-
       if (age < 7000 && data.reaction.sender !== playerSymbol) {
         animateReceivedEmoji(data.reaction.emoji);
-        console.log(`Opponent (${data.reaction.sender}) sent: ${data.reaction.emoji}`);
       }
     }
 
@@ -108,7 +157,6 @@ function startListening() {
     const winner = getWinner(boardState);
 
     if (winner && !data.winner) {
-      // New win detected – save it and add point
       db.ref(gameId).update({ winner: winner });
 
       if (winner === "X") {
@@ -122,13 +170,12 @@ function startListening() {
       updateScoreDisplay();
     }
 
-    // Show victory when winner exists in data
+    // Show victory immediately when winner exists
     if (data.winner) {
       statusEl.textContent = `${data.winner} wins! Click Restart to play again.`;
       highlightWinningLine(data.winner);
       gameActive = false;
     } else {
-      // Normal turn logic
       if (data.status === "playing") {
         gameActive = true;
         myTurn = data.currentTurn === playerSymbol;
@@ -136,8 +183,6 @@ function startListening() {
         statusEl.textContent = myTurn
           ? `YOUR TURN (${playerSymbol})`
           : `Waiting for ${data.currentTurn}…`;
-
-        console.log(`I am ${playerSymbol} | turn: ${data.currentTurn} | myTurn: ${myTurn}`);
       } else if (data.status === "waiting") {
         statusEl.textContent = "Waiting for second player…";
       }
@@ -192,9 +237,7 @@ cells.forEach(cell => {
   cell.addEventListener("click", () => {
     const index = Number(cell.dataset.index);
 
-    if (!gameActive || !myTurn || boardState[index] || !gameId) {
-      return;
-    }
+    if (!gameActive || !myTurn || boardState[index] || !gameId) return;
 
     boardState[index] = playerSymbol;
 
@@ -212,9 +255,7 @@ resetBtn.addEventListener('click', () => {
     return;
   }
 
-  if (!confirm("Restart game? Board clears – starter switches.")) {
-    return;
-  }
+  if (!confirm("Restart game? Board clears – starter switches.")) return;
 
   const gameRef = db.ref(gameId);
 
@@ -227,9 +268,8 @@ resetBtn.addEventListener('click', () => {
       board: Array(9).fill(null),
       currentTurn: newStartingPlayer,
       winner: null
-      // scores are NOT reset here
-    })
-    .then(() => {
+      // scores & messages NOT reset
+    }).then(() => {
       gameActive = true;
       myTurn = (playerSymbol === newStartingPlayer);
 
@@ -238,12 +278,9 @@ resetBtn.addEventListener('click', () => {
       statusEl.textContent = myTurn
         ? `YOUR TURN (${playerSymbol}) – new game!`
         : `Waiting for ${newStartingPlayer} – new game started`;
-
-      console.log(`Restarted → ${newStartingPlayer} starts`);
-    })
-    .catch(err => {
+    }).catch(err => {
       console.error("Restart failed:", err);
-      statusEl.textContent = "Restart failed – try again";
+      statusEl.textContent = "Restart failed";
     });
   });
 });
@@ -252,13 +289,9 @@ resetBtn.addEventListener('click', () => {
 
 const reactionButtons = document.querySelectorAll('.reaction-btn');
 
-// Send reaction
 reactionButtons.forEach(button => {
   button.addEventListener('click', () => {
-    if (!gameId || !playerSymbol) {
-      statusEl.textContent = "No game or no symbol yet";
-      return;
-    }
+    if (!gameId || !playerSymbol) return;
 
     const emoji = button.dataset.emoji;
 
@@ -266,15 +299,10 @@ reactionButtons.forEach(button => {
       emoji: emoji,
       sender: playerSymbol,
       sentAt: Date.now()
-    }).then(() => {
-      console.log(`You (${playerSymbol}) sent: ${emoji}`);
-    }).catch(err => {
-      console.error("Send failed:", err);
-    });
+    }).catch(err => console.error("Reaction failed:", err));
   });
 });
 
-// Animate received emoji (only opponent's)
 function animateReceivedEmoji(emoji) {
   reactionButtons.forEach(btn => btn.classList.remove('received'));
 
@@ -282,10 +310,6 @@ function animateReceivedEmoji(emoji) {
 
   if (target) {
     target.classList.add('received');
-    console.log("Animating emoji:", emoji);
-
-    setTimeout(() => {
-      target.classList.remove('received');
-    }, 4000);
+    setTimeout(() => target.classList.remove('received'), 4000);
   }
-  }
+    }
