@@ -20,15 +20,26 @@
         <input type="text" id="roomCode" placeholder="Enter room code (or make one up)">
         <button id="joinBtn">Join / Create Game</button>
     </div>
+    <!-- Chat area – appears after second player joins -->
+<div id="chat-container" style="display: none;">
+  <div id="chat-messages" class="chat-messages"></div>
+  <div class="chat-input-area">
+    <input type="text" id="chat-input" placeholder="Type a message..." />
+    <button id="chat-send">Send</button>
+  </div>
+</div>
+    
+    <!-- SCORE DISPLAY - exactly in the shaded area you marked -->
+<div id="score-display" class="score">
+  X: 0  O: 0
+</div>
+
  <div class="reactions">
   <button class="reaction-btn" data-emoji="😂">😂</button>
-  <button class="reaction-btn" data-emoji="😭">😭</button>
+  <button class="reaction-btn" data-emoji="💀">💀</button>
+  <button class="reaction-btn" data-emoji="🤦">🤦</button>
   <button class="reaction-btn" data-emoji="🤔">🤔</button>
   <button class="reaction-btn" data-emoji="👏">👏</button>
-  <button class="reaction-btn" data-emoji="🤡">🤡</button>
-  <button class="reaction-btn" data-emoji="😈">😈</button>
-  <button class="reaction-btn" data-emoji="💀">💀</button>
-  <button class="reaction-btn" data-emoji="🖕">🖕</button>
 </div>
 
     <!-- Floating reaction display (one per player screen) -->
