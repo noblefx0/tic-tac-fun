@@ -308,8 +308,14 @@ function animateReceivedEmoji(emoji) {
 
   const target = Array.from(reactionButtons).find(btn => btn.dataset.emoji === emoji);
 
-  if (target) {
-    target.classList.add('received');
-    setTimeout(() => target.classList.remove('received'), 4000);
-  }
+    if (target) {
+        target.classList.add('received');
+        console.log("Animating emoji on this screen:", emoji);
+
+        setTimeout(() => {
+            target.classList.remove('received');
+        }, 1300);
+    } else {
+        console.warn("No reaction button found for:", emoji);
     }
+                 }
