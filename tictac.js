@@ -120,6 +120,8 @@ function startListening() {
     boardState = data.board || Array(9).fill(null);
     renderBoard();
 
+    updateRestartButton();
+    
     // Load scores
     scoreX = data.scores?.X || 0;
     scoreO = data.scores?.O || 0;
@@ -313,3 +315,17 @@ function animateReceivedEmoji(emoji) {
     setTimeout(() => target.classList.remove('received'), 4000);
   }
     }
+
+// Enable/disable restart button based on board state
+function updateRestartButton() {
+  const isBoardFull = boardState.every(cell => cell !== null);
+  const hasWinner = !!getWinner(boardState) || !!data?.winner; // check both local and db
+
+  if (isBoardFull || hasWinner) {
+    resetBtn.disabled = false;
+    resetBtn.style.background = "#ef4444"; // red = active (optional)
+  } else {
+    resetBtn.disabled = true;
+    resetBtn.style.background = ""; // reset to normal
+  }
+}
