@@ -54,18 +54,6 @@ h1 {
     font-size: 1em;
 }
 
-#reset:disabled {
-  background: #475569 !important;
-  color: #94a3b8 !important;
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-#reset {
-  /* your existing styles */
-  transition: all 0.2s;
-}
-
 .menu {
     margin: 20px 0;
     display: flex;
