@@ -32,7 +32,7 @@ const chatContainer = document.getElementById("chat-container");
 const chatMessages = document.getElementById("chat-messages");
 const chatInput = document.getElementById("chat-input");
 const chatSend = document.getElementById("chat-send");
-const chatLog = []; // keeps last 15 messages
+const chatLog = []; // last 15 messages
 
 function sendChatMessage() {
   const message = chatInput.value.trim();
@@ -69,6 +69,23 @@ function addChatMessage(sender, text) {
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
+// ── Restart button control ──────────────────────────────────────────
+function toggleRestartButton() {
+  const isBoardFull = boardState.every(cell => cell !== null);
+  const hasWinner = getWinner(boardState) !== null || !!data?.winner;
+
+  resetBtn.disabled = !(isBoardFull || hasWinner);
+
+  // Optional visual feedback
+  if (resetBtn.disabled) {
+    resetBtn.style.opacity = "0.6";
+    resetBtn.style.cursor = "not-allowed";
+  } else {
+    resetBtn.style.opacity = "1";
+    resetBtn.style.cursor = "pointer";
+  }
+}
+
 // ── Join / Create ───────────────────────────────────────────────────
 joinBtn.addEventListener("click", () => {
   const code = roomInput.value.trim();
@@ -95,6 +112,7 @@ joinBtn.addEventListener("click", () => {
         statusEl.textContent = `Game created! Share code: ${code} (You are X)`;
         startListening();
         gameActive = true;
+        toggleRestartButton(); // initial check
       });
     } else if (data.status === "waiting") {
       playerSymbol = "O";
@@ -104,6 +122,7 @@ joinBtn.addEventListener("click", () => {
         statusEl.textContent = "Joined! You are O – game starting…";
         startListening();
         gameActive = true;
+        toggleRestartButton();
       });
     } else {
       alert("Game already full or finished. Use a new code.");
@@ -119,7 +138,9 @@ function startListening() {
 
     boardState = data.board || Array(9).fill(null);
     renderBoard();
-    
+
+    toggleRestartButton(); // check after every update
+
     // Load scores
     scoreX = data.scores?.X || 0;
     scoreO = data.scores?.O || 0;
@@ -127,8 +148,7 @@ function startListening() {
 
     // Show chat UI & hide join UI when playing
     if (data.status === "playing") {
-      // Hide room input + button (adjust selector if your HTML is different)
-      roomInput.parentElement.style.display = "none"; // or ".menu", "#input-area", etc.
+      roomInput.parentElement.style.display = "none";
       joinBtn.style.display = "none";
       if (chatContainer) chatContainer.style.display = "block";
       updateScoreDisplay();
@@ -144,7 +164,7 @@ function startListening() {
       });
     }
 
-    // ── Reaction handling ───────────────────────────────────────────
+    // Reaction handling
     if (data.reaction && data.reaction.sentAt && data.reaction.sender) {
       const now = Date.now();
       const age = now - data.reaction.sentAt;
@@ -168,13 +188,14 @@ function startListening() {
       }
 
       updateScoreDisplay();
+      toggleRestartButton(); // enable button on win
     }
 
-    // Show victory immediately when winner exists
     if (data.winner) {
       statusEl.textContent = `${data.winner} wins! Click Restart to play again.`;
       highlightWinningLine(data.winner);
       gameActive = false;
+      toggleRestartButton(); // ensure enabled
     } else {
       if (data.status === "playing") {
         gameActive = true;
@@ -244,12 +265,16 @@ cells.forEach(cell => {
     db.ref(gameId).update({
       board: boardState,
       currentTurn: playerSymbol === "X" ? "O" : "X"
+    }).then(() => {
+      toggleRestartButton(); // check after move (might be full now)
     });
   });
 });
 
 // ── Restart game ────────────────────────────────────────────────────
 resetBtn.addEventListener('click', () => {
+  if (resetBtn.disabled) return; // extra safety
+
   if (!gameId) {
     statusEl.textContent = "No active game";
     return;
@@ -268,7 +293,6 @@ resetBtn.addEventListener('click', () => {
       board: Array(9).fill(null),
       currentTurn: newStartingPlayer,
       winner: null
-      // scores & messages NOT reset
     }).then(() => {
       gameActive = true;
       myTurn = (playerSymbol === newStartingPlayer);
@@ -278,6 +302,8 @@ resetBtn.addEventListener('click', () => {
       statusEl.textContent = myTurn
         ? `YOUR TURN (${playerSymbol}) – new game!`
         : `Waiting for ${newStartingPlayer} – new game started`;
+
+      toggleRestartButton(); // disable again after restart
     }).catch(err => {
       console.error("Restart failed:", err);
       statusEl.textContent = "Restart failed";
@@ -312,4 +338,4 @@ function animateReceivedEmoji(emoji) {
     target.classList.add('received');
     setTimeout(() => target.classList.remove('received'), 4000);
   }
-    }
+}
