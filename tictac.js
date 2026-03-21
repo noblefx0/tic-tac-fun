@@ -32,7 +32,7 @@ const chatContainer = document.getElementById("chat-container");
 const chatMessages = document.getElementById("chat-messages");
 const chatInput = document.getElementById("chat-input");
 const chatSend = document.getElementById("chat-send");
-const chatLog = []; // last 15 messages
+const chatLog = []; // keeps last 15 messages
 
 function sendChatMessage() {
   const message = chatInput.value.trim();
@@ -69,19 +69,6 @@ function addChatMessage(sender, text) {
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-// Restart button only shows when game is truly over: winner exists OR board is 100% full
-function updateRestartVisibility() {
-  const isBoardFull = boardState.every(cell => cell !== null) && boardState.length === 9;
-  const hasWinner = getWinner(boardState) !== null;
-
-  // Show ONLY if full OR winner
-  if (hasWinner || isBoardFull) {
-    resetBtn.style.display = "block";
-  } else {
-    resetBtn.style.display = "none";
-  }
-}
-
 // ── Join / Create ───────────────────────────────────────────────────
 joinBtn.addEventListener("click", () => {
   const code = roomInput.value.trim();
@@ -108,7 +95,6 @@ joinBtn.addEventListener("click", () => {
         statusEl.textContent = `Game created! Share code: ${code} (You are X)`;
         startListening();
         gameActive = true;
-        updateRestartVisibility(); // hide initially
       });
     } else if (data.status === "waiting") {
       playerSymbol = "O";
@@ -118,7 +104,6 @@ joinBtn.addEventListener("click", () => {
         statusEl.textContent = "Joined! You are O – game starting…";
         startListening();
         gameActive = true;
-        updateRestartVisibility();
       });
     } else {
       alert("Game already full or finished. Use a new code.");
@@ -134,9 +119,7 @@ function startListening() {
 
     boardState = data.board || Array(9).fill(null);
     renderBoard();
-
-    updateRestartVisibility(); // check visibility after every update
-
+    
     // Load scores
     scoreX = data.scores?.X || 0;
     scoreO = data.scores?.O || 0;
@@ -144,7 +127,8 @@ function startListening() {
 
     // Show chat UI & hide join UI when playing
     if (data.status === "playing") {
-      roomInput.parentElement.style.display = "none";
+      // Hide room input + button (adjust selector if your HTML is different)
+      roomInput.parentElement.style.display = "none"; // or ".menu", "#input-area", etc.
       joinBtn.style.display = "none";
       if (chatContainer) chatContainer.style.display = "block";
       updateScoreDisplay();
@@ -160,7 +144,7 @@ function startListening() {
       });
     }
 
-    // Reaction handling
+    // ── Reaction handling ───────────────────────────────────────────
     if (data.reaction && data.reaction.sentAt && data.reaction.sender) {
       const now = Date.now();
       const age = now - data.reaction.sentAt;
@@ -184,14 +168,13 @@ function startListening() {
       }
 
       updateScoreDisplay();
-      updateRestartVisibility(); // show button on win
     }
 
+    // Show victory immediately when winner exists
     if (data.winner) {
       statusEl.textContent = `${data.winner} wins! Click Restart to play again.`;
       highlightWinningLine(data.winner);
       gameActive = false;
-      updateRestartVisibility(); // ensure visible
     } else {
       if (data.status === "playing") {
         gameActive = true;
@@ -261,16 +244,12 @@ cells.forEach(cell => {
     db.ref(gameId).update({
       board: boardState,
       currentTurn: playerSymbol === "X" ? "O" : "X"
-    }).then(() => {
-      updateRestartVisibility(); // check after move (may be full now)
     });
   });
 });
 
 // ── Restart game ────────────────────────────────────────────────────
 resetBtn.addEventListener('click', () => {
-  if (resetBtn.style.display === "none") return;
-
   if (!gameId) {
     statusEl.textContent = "No active game";
     return;
@@ -289,23 +268,16 @@ resetBtn.addEventListener('click', () => {
       board: Array(9).fill(null),
       currentTurn: newStartingPlayer,
       winner: null
+      // scores & messages NOT reset
     }).then(() => {
-      // Critical resets for new game to be playable
       gameActive = true;
       myTurn = (playerSymbol === newStartingPlayer);
-      boardState = Array(9).fill(null);  // full local reset
 
       cells.forEach(cell => cell.classList.remove('winner'));
 
       statusEl.textContent = myTurn
         ? `YOUR TURN (${playerSymbol}) – new game!`
         : `Waiting for ${newStartingPlayer} – new game started`;
-
-      updateRestartVisibility();  // hide button
-
-      renderBoard();  // refresh UI
-
-      console.log("Game restarted – should be playable now");
     }).catch(err => {
       console.error("Restart failed:", err);
       statusEl.textContent = "Restart failed";
@@ -336,8 +308,91 @@ function animateReceivedEmoji(emoji) {
 
   const target = Array.from(reactionButtons).find(btn => btn.dataset.emoji === emoji);
 
-  if (target) {
-    target.classList.add('received');
-    setTimeout(() => target.classList.remove('received'), 4000);
+    if (target) {
+        target.classList.add('received');
+        console.log("Animating emoji on this screen:", emoji);
+
+        setTimeout(() => {
+            target.classList.remove('received');
+        }, 1300);
+    } else {
+        console.warn("No reaction button found for:", emoji);
+    }
+            }
+
+// ── Both players must agree to restart ──────────────────────────────
+
+const restartConfirm = document.getElementById("restart-confirm");
+const restartMessage = document.getElementById("restart-message");
+const restartYes = document.getElementById("restart-yes");
+const restartNo = document.getElementById("restart-no");
+
+// When a restart request is made or updated
+db.ref(gameId).child("restartRequest").on("value", snap => {
+  const req = snap.val();
+
+  if (!req || req.status !== "pending") {
+    restartConfirm.style.display = "none";
+    return;
   }
-        }
+
+  const requester = req.from === playerSymbol ? "You" : `Player ${req.from}`;
+  restartMessage.textContent = `${requester} wants to restart the game. Accept?`;
+
+  restartConfirm.style.display = "block";
+});
+
+// Accept restart
+restartYes.addEventListener("click", () => {
+  db.ref(gameId).child("restartRequest").update({ status: "accepted" });
+  restartConfirm.style.display = "none";
+});
+
+// Reject restart
+restartNo.addEventListener("click", () => {
+  db.ref(gameId).child("restartRequest").remove();
+  restartConfirm.style.display = "none";
+});
+
+// When both accept → perform reset
+db.ref(gameId).child("restartRequest").on("value", snap => {
+  const req = snap.val();
+
+  if (req && req.status === "accepted") {
+    // Reset game
+    db.ref(gameId).update({
+      board: Array(9).fill(null),
+      currentTurn: "X",  // or your starter switch logic
+      winner: null
+    });
+
+    // Local reset
+    boardState = Array(9).fill(null);
+    gameActive = true;
+    myTurn = (playerSymbol === "X"); // or adjust
+    renderBoard();
+
+    statusEl.textContent = "Game restarted by agreement!";
+
+    // Clear request
+    db.ref(gameId).child("restartRequest").remove();
+
+    updateRestartVisibility(); // if you still have visibility logic
+  }
+});
+
+// Replace your old restart button click handler with this
+resetBtn.addEventListener("click", () => {
+  if (!gameId || !playerSymbol) return;
+
+  // Create request
+  db.ref(gameId).child("restartRequest").set({
+    from: playerSymbol,
+    status: "pending",
+    timestamp: Date.now()
+  }).then(() => {
+    console.log("Restart request sent");
+  }).catch(err => {
+    console.error("Restart request failed:", err);
+  });
+});
