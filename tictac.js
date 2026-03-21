@@ -320,7 +320,7 @@ function animateReceivedEmoji(emoji) {
     }
             }
 
-// ── Both players must agree to restart ──────────────────────────────
+// ── Both players must agree to restart ─────────────────────────────
 
 const restartConfirm = document.getElementById("restart-confirm");
 const restartMessage = document.getElementById("restart-message");
