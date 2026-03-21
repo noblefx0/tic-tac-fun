@@ -259,3 +259,11 @@ h1 {
 #chat-send:hover {
   background: #2563eb;
 }
+
+#restart-confirm {
+  font-family: Arial, sans-serif;
+}
+
+#restart-confirm button:hover {
+  opacity: 0.9;
+}
