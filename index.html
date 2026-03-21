@@ -59,7 +59,14 @@
         <div class="cell" data-index="8"></div>
     </div>
 
-    <button id="reset" style="display: none;">Restart Game</button>
+    <button id="reset">Restart Game</button>
+
+    <!-- Restart confirmation popup -->
+<div id="restart-confirm" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.85); color: white; padding: 24px; border-radius: 16px; text-align: center; z-index: 9999; box-shadow: 0 10px 30px rgba(0,0,0,0.5); max-width: 90%;">
+  <p id="restart-message" style="font-size: 1.2rem; margin: 0 0 20px 0;">Player wants to restart. Accept?</p>
+  <button id="restart-yes" style="background: #22c55e; color: white; padding: 12px 24px; margin: 0 10px; border: none; border-radius: 10px; font-size: 1.1rem; cursor: pointer;">Yes</button>
+  <button id="restart-no" style="background: #ef4444; color: white; padding: 12px 24px; margin: 0 10px; border: none; border-radius: 10px; font-size: 1.1rem; cursor: pointer;">No</button>
+</div>
 
     <script>
         // Your Firebase config — replace with yours from Firebase console
