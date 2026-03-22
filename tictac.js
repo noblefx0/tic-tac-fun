@@ -277,98 +277,88 @@ function animateReceivedEmoji(emoji) {
   }
 }
 
-// ── Both players must agree to restart ──────────────────────────────────────
+// ── Both must agree to restart ──────────────────────────────────────
+function setupRestartConfirmation() {
+  // Only run if gameId exists
+  if (!gameId) return;
 
-const restartConfirm = document.getElementById("restart-confirm");
-const restartMessage = document.getElementById("restart-message");
-const restartYes = document.getElementById("restart-yes");
-const restartNo = document.getElementById("restart-no");
+  const restartConfirm = document.getElementById("restart-confirm");
+  const restartMessage = document.getElementById("restart-message");
+  const restartYes = document.getElementById("restart-yes");
+  const restartNo = document.getElementById("restart-no");
 
-// Listen for restart request changes
-db.ref(gameId).child("restartRequest").on("value", snap => {
-  const req = snap.val();
+  // Listen for restart request
+  db.ref(gameId).child("restartRequest").on("value", snap => {
+    const req = snap.val();
 
-  if (!req || req.status !== "pending") {
-    if (restartConfirm) restartConfirm.style.display = "none";
-    return;
+    if (!req || req.status !== "pending") {
+      if (restartConfirm) restartConfirm.style.display = "none";
+      return;
+    }
+
+    const requester = req.from === playerSymbol ? "You" : `Player ${req.from}`;
+    restartMessage.textContent = `${requester} wants to restart the game. Accept?`;
+
+    if (restartConfirm) restartConfirm.style.display = "block";
+  });
+
+  // Accept
+  if (restartYes) {
+    restartYes.addEventListener("click", () => {
+      db.ref(gameId).child("restartRequest").update({ status: "accepted" });
+      if (restartConfirm) restartConfirm.style.display = "none";
+    });
   }
 
-  const requester = req.from === playerSymbol ? "You" : `Player ${req.from}`;
-  const acceptedCount = Object.keys(req.acceptedBy || {}).length;
-
-  restartMessage.textContent = `\( {requester} wants to restart. Accept? ( \){acceptedCount}/2 agreed)`;
-
-  if (restartConfirm) restartConfirm.style.display = "block";
-});
-
-// Accept – add your symbol to acceptedBy
-if (restartYes) {
-  restartYes.addEventListener("click", () => {
-    db.ref(gameId).child("restartRequest/acceptedBy").update({
-      [playerSymbol]: true
+  // Reject
+  if (restartNo) {
+    restartNo.addEventListener("click", () => {
+      db.ref(gameId).child("restartRequest").remove();
+      if (restartConfirm) restartConfirm.style.display = "none";
     });
-    if (restartConfirm) restartConfirm.style.display = "none";
-  });
-}
+  }
 
-// Reject – cancel the request
-if (restartNo) {
-  restartNo.addEventListener("click", () => {
-    db.ref(gameId).child("restartRequest").remove();
-    if (restartConfirm) restartConfirm.style.display = "none";
-  });
-}
+  // When both accept → reset
+  db.ref(gameId).child("restartRequest").on("value", snap => {
+    const req = snap.val();
 
-// When both have accepted → reset game
-db.ref(gameId).child("restartRequest").on("value", snap => {
-  const req = snap.val();
-
-  if (req && req.status === "pending") {
-    const accepted = req.acceptedBy || {};
-    if (accepted.X && accepted.O) {
-      // Both agreed – reset game
+    if (req && req.status === "accepted") {
       db.ref(gameId).update({
         board: Array(9).fill(null),
-        currentTurn: "X",  // or your starter switch logic
-        winner: null,
-        restartRequest: null  // clear request
+        currentTurn: "X",
+        winner: null
       });
 
       boardState = Array(9).fill(null);
       gameActive = true;
-      myTurn = playerSymbol === "X";  // adjust if needed
+      myTurn = playerSymbol === "X";
       renderBoard();
 
       statusEl.textContent = "Game restarted by agreement!";
 
-      console.log("Game reset – both accepted");
+      db.ref(gameId).child("restartRequest").remove();
     }
-  }
-});
+  });
+}
 
-// Restart button click → send request
+// Replace old restart click with request
 resetBtn.addEventListener("click", () => {
   if (!gameId || !playerSymbol) {
     statusEl.textContent = "No game active";
     return;
   }
 
-  // Prevent spamming requests – check if request already pending
-  db.ref(gameId).child("restartRequest").once("value", snap => {
-    if (snap.exists() && snap.val().status === "pending") {
-      statusEl.textContent = "A restart request is already pending...";
-      return;
-    }
-
-    db.ref(gameId).child("restartRequest").set({
-      from: playerSymbol,
-      status: "pending",
-      acceptedBy: {},
-      timestamp: Date.now()
-    }).then(() => {
-      console.log("Restart request sent – waiting for both to accept");
-    }).catch(err => {
-      console.error("Failed to send restart request:", err);
-    });
+  db.ref(gameId).child("restartRequest").set({
+    from: playerSymbol,
+    status: "pending",
+    timestamp: Date.now()
+  }).then(() => {
+    console.log("Restart request sent – waiting for agreement");
+  }).catch(err => {
+    console.error("Failed to send restart request:", err);
   });
 });
+
+// Call setup when game starts (add this inside startListening() after gameRef.on("value"))
+// Inside startListening() → after if (data.status === "playing") { ... }
+      
