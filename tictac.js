@@ -90,7 +90,8 @@ joinBtn.addEventListener("click", () => {
         status: "waiting",
         winner: null,
         scores: { X: 0, O: 0 },
-        messages: {}
+        messages: {},
+        restartRequest: null
       }).then(() => {
         statusEl.textContent = `Game created! Share code: ${code} (You are X)`;
         startListening();
@@ -131,6 +132,7 @@ function startListening() {
       joinBtn.style.display = "none";
       if (chatContainer) chatContainer.style.display = "block";
       updateScoreDisplay();
+      setupRestartConfirmation();
     }
 
     // Load last 15 messages
@@ -276,66 +278,70 @@ function animateReceivedEmoji(emoji) {
 }
 
 // ── Both must agree to restart ──────────────────────────────────────
+function setupRestartConfirmation() {
+  // Only run if gameId exists
+  if (!gameId) return;
 
-const restartConfirm = document.getElementById("restart-confirm");
-const restartMessage = document.getElementById("restart-message");
-const restartYes = document.getElementById("restart-yes");
-const restartNo = document.getElementById("restart-no");
+  const restartConfirm = document.getElementById("restart-confirm");
+  const restartMessage = document.getElementById("restart-message");
+  const restartYes = document.getElementById("restart-yes");
+  const restartNo = document.getElementById("restart-no");
 
-// Listen for restart request
-db.ref(gameId).child("restartRequest").on("value", snap => {
-  const req = snap.val();
+  // Listen for restart request
+  db.ref(gameId).child("restartRequest").on("value", snap => {
+    const req = snap.val();
 
-  if (!req || req.status !== "pending") {
-    if (restartConfirm) restartConfirm.style.display = "none";
-    return;
-  }
+    if (!req || req.status !== "pending") {
+      if (restartConfirm) restartConfirm.style.display = "none";
+      return;
+    }
 
-  const requester = req.from === playerSymbol ? "You" : `Player ${req.from}`;
-  restartMessage.textContent = `${requester} wants to restart the game. Accept?`;
+    const requester = req.from === playerSymbol ? "You" : `Player ${req.from}`;
+    restartMessage.textContent = `${requester} wants to restart the game. Accept?`;
 
-  if (restartConfirm) restartConfirm.style.display = "block";
-});
-
-// Accept restart
-if (restartYes) {
-  restartYes.addEventListener("click", () => {
-    db.ref(gameId).child("restartRequest").update({ status: "accepted" });
-    if (restartConfirm) restartConfirm.style.display = "none";
+    if (restartConfirm) restartConfirm.style.display = "block";
   });
-}
 
-// Reject restart
-if (restartNo) {
-  restartNo.addEventListener("click", () => {
-    db.ref(gameId).child("restartRequest").remove();
-    if (restartConfirm) restartConfirm.style.display = "none";
-  });
-}
-
-// When both accept → reset game
-db.ref(gameId).child("restartRequest").on("value", snap => {
-  const req = snap.val();
-
-  if (req && req.status === "accepted") {
-    db.ref(gameId).update({
-      board: Array(9).fill(null),
-      currentTurn: "X",
-      winner: null
+  // Accept
+  if (restartYes) {
+    restartYes.addEventListener("click", () => {
+      db.ref(gameId).child("restartRequest").update({ status: "accepted" });
+      if (restartConfirm) restartConfirm.style.display = "none";
     });
-
-    boardState = Array(9).fill(null);
-    gameActive = true;
-    myTurn = playerSymbol === "X";
-    renderBoard();
-
-    statusEl.textContent = "Game restarted by agreement!";
-
-    db.ref(gameId).child("restartRequest").remove();
   }
-});
 
-// Restart button click → send request
+  // Reject
+  if (restartNo) {
+    restartNo.addEventListener("click", () => {
+      db.ref(gameId).child("restartRequest").remove();
+      if (restartConfirm) restartConfirm.style.display = "none";
+    });
+  }
+
+  // When both accept → reset
+  db.ref(gameId).child("restartRequest").on("value", snap => {
+    const req = snap.val();
+
+    if (req && req.status === "accepted") {
+      db.ref(gameId).update({
+        board: Array(9).fill(null),
+        currentTurn: "X",
+        winner: null
+      });
+
+      boardState = Array(9).fill(null);
+      gameActive = true;
+      myTurn = playerSymbol === "X";
+      renderBoard();
+
+      statusEl.textContent = "Game restarted by agreement!";
+
+      db.ref(gameId).child("restartRequest").remove();
+    }
+  });
+}
+
+// Replace old restart click with request
 resetBtn.addEventListener("click", () => {
   if (!gameId || !playerSymbol) {
     statusEl.textContent = "No game active";
@@ -352,3 +358,7 @@ resetBtn.addEventListener("click", () => {
     console.error("Failed to send restart request:", err);
   });
 });
+
+// Call setup when game starts (add this inside startListening() after gameRef.on("value"))
+// Inside startListening() → after if (data.status === "playing") { ... }
+      
